@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head>
+<title>Sound test</title>
+</head>
+<body>
+<script src="js/tracks.js"></script>
+<script src="js/dj.js"></script>
+<script src="js/visualizer.js"></script>
+
+<button onclick="if (myTrack) this.innerText = myTrack.togglePlayback()">start</button>
+<input type="range" min="-2" max="2" step="0.01" value="1" style="height: 20px; width: 200px;" 
+          onInput="if (myTrack) myTrack.changePlaybackRate( event.target.value ); document.getElementById('pbRate').innerText = value;">
+          <span id="pbRate">1.00</span>
+
+</body>
+</html>

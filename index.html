@@ -2,6 +2,14 @@
 <html>
 <head>
 <title>Sound test</title>
+<style>
+.track { border: 5px solid lime; border-radius: 10px;
+    width: 400px; height: 400px;
+    }
+.loading { border-color: red;}
+input.pbslider { height: 20px; width: 300px;}
+.droptarget { background: gray;}
+</style>
 </head>
 <body>
 <script src="js/tracks.js"></script>
@@ -9,9 +17,12 @@
 <script src="js/visualizer.js"></script>
 
 <button onclick="if (myTrack) this.innerText = myTrack.togglePlayback()">start</button>
-<input type="range" min="-2" max="2" step="0.01" value="1" style="height: 20px; width: 200px;" 
+<input class="pbslider" type="range" min="-2" max="2" step="0.01" value="1" 
           onInput="if (myTrack) myTrack.changePlaybackRate( event.target.value ); document.getElementById('pbRate').innerText = value;">
           <span id="pbRate">1.00</span>
+
+<div id="trackContainer">
+</div>
 
 </body>
 </html>

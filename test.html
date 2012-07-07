@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<title>Sound test</title>
+</head>
+<body>
+<script>
+var isPlaying = false;
+var sourceNode = null;
+var theBuffer = null;
+var audioContext = new webkitAudioContext;
+
+var request = new XMLHttpRequest();
+request.open("GET", "sounds/drums.ogg", true);
+request.responseType = "arraybuffer";
+request.onload = function() {
+  audioContext.decodeAudioData( request.response, function(buffer) { 
+    	theBuffer = buffer;
+	} );
+}
+request.send();
+
+
+function togglePlayback() {
+    var now = audioContext.currentTime;
+
+    if (isPlaying) {
+        //stop playing and return
+        sourceNode.playbackRate.cancelScheduledValues( now );
+        sourceNode.playbackRate.setValueAtTime( sourceNode.playbackRate.value, now );
+//        sourceNode.playbackRate.setTargetValueAtTime( 0.001, now, .3 );
+        sourceNode.playbackRate.linearRampToValueAtTime( 0.001, now+1 );
+        sourceNode.noteOff( now + 2 );
+        sourceNode = null;
+        isPlaying = false;
+        return "play";
+    }
+
+    sourceNode = audioContext.createBufferSource();
+    sourceNode.buffer = theBuffer;
+    sourceNode.loop = true;
+    sourceNode.playbackRate.setValueAtTime( 0.001, now );
+//    sourceNode.playbackRate.setTargetValueAtTime( 1.0, now, .3 );
+    sourceNode.playbackRate.linearRampToValueAtTime( 1.0, now+1 );
+    this.currentPlaybackRate = 1.0;
+
+    sourceNode.connect( audioContext.destination );
+
+    sourceNode.noteOn( now );
+    this.sourceNode = sourceNode;
+    this.isPlaying = true;
+    return "stop";
+}
+</script>
+
+<button onclick="this.innerText = togglePlayback()">start</button>
+
+</body>
+</html>

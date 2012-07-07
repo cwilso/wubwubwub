@@ -1,7 +1,9 @@
 var audioContext = new webkitAudioContext();
 
-// timing for reversing
 // check out hardware DJ interface - Who did Scott Schiller say made it?
 
-var myTrack = new Track( "sounds/drums.ogg" );
+var myTrack;
 
+window.onload = function() {
+	myTrack = new Track( "sounds/dream.mp3" );
+};

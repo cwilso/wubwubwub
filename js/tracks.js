@@ -1,11 +1,50 @@
+var audioContext = new webkitAudioContext();
+
+window.onload = function() {
+	new Track( "sounds/dream.mp3" );
+	new Track()
+};
+
+
+// The Track object represents an in-memory track.  In order to be able to
+// reverse the playback, it also creates and keeps a reversed version of
+// the track in memory.
+//
+// This object does not currently handle running off the ends of the buffer
+// (forward or backward) very gracefully.  //TODO.
 function Track( url ) {
 	var thisTrack = this;
 	var e = document.createElement( "div" );
+	e.track = thisTrack;
 	e.className = "track loading";
-	var nameElement = document.createElement("span");
+	var nameElement = document.createElement("div");
 	nameElement.class="name";
 	nameElement.appendChild( document.createTextNode(url) );
 	e.appendChild( nameElement );
+	var playButton = document.createElement("button");
+	playButton.appendChild( document.createTextNode("play") );
+	playButton.onclick=function(e) { 
+		if (this.parentNode.track) 
+			this.innerText = this.parentNode.track.togglePlayback()
+	};
+	e.appendChild( playButton );
+	var pbrSlider = document.createElement("input");
+	pbrSlider.className = "pbrslider";
+	pbrSlider.type = "range";
+	pbrSlider.min = "-2";
+	pbrSlider.max = "2";
+	pbrSlider.step = "0.01";
+	pbrSlider.value = "1";
+	pbrSlider.oninput = function(event) {
+		if (this.parentNode.track) 
+			this.parentNode.track.changePlaybackRate(event.target.value);
+		this.parentNode.children[3].innerText = event.target.value;
+	};
+	e.appendChild( pbrSlider );
+	var pbrText = document.createElement( "span" );
+	pbrText.appendChild( document.createTextNode("1.00"));
+	e.appendChild( pbrText );
+
 	document.getElementById( "trackContainer" ).appendChild(e);
 	this.trackElement = e;
 	e.ondragenter = function () { 

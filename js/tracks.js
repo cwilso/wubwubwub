@@ -1,8 +1,8 @@
 var audioContext = new webkitAudioContext();
 
 window.onload = function() {
-	new Track( "sounds/dream.mp3" );
-	new Track()
+	new Track( "../sounds/TheUnderworld.ogg" );
+	new Track( "../sounds/RapidArc.ogg" );
 };
 
 
@@ -28,22 +28,54 @@ function Track( url ) {
 			this.innerText = this.parentNode.track.togglePlayback()
 	};
 	e.appendChild( playButton );
+
+	e.appendChild( document.createElement("br") );
+	e.appendChild( document.createTextNode("rate") );
+
 	var pbrSlider = document.createElement("input");
-	pbrSlider.className = "pbrslider";
+	pbrSlider.className = "slider";
 	pbrSlider.type = "range";
 	pbrSlider.min = "-2";
 	pbrSlider.max = "2";
 	pbrSlider.step = "0.01";
 	pbrSlider.value = "1";
 	pbrSlider.oninput = function(event) {
-		if (this.parentNode.track) 
-			this.parentNode.track.changePlaybackRate(event.target.value);
-		this.parentNode.children[3].innerText = event.target.value;
+		var track = this.parentNode.track;
+		if (track) { 
+			track.changePlaybackRate(event.target.value);
+			track.pbrText.innerText = event.target.value;
+		}
 	};
 	e.appendChild( pbrSlider );
+
 	var pbrText = document.createElement( "span" );
 	pbrText.appendChild( document.createTextNode("1.00"));
 	e.appendChild( pbrText );
+	this.pbrText = pbrText;
+
+	e.appendChild( document.createElement("br") );
+	e.appendChild( document.createTextNode("gain") );
+
+	var gainSlider = document.createElement("input");
+	gainSlider.className = "slider";
+	gainSlider.type = "range";
+	gainSlider.min = "0";
+	gainSlider.max = "3";
+	gainSlider.step = "0.01";
+	gainSlider.value = "1";
+	gainSlider.oninput = function(event) {
+		var track = this.parentNode.track;
+		if (track) { 
+			track.changeGain(event.target.value);
+			track.gainText.innerText = event.target.value;
+		}
+	};
+	e.appendChild( gainSlider );
+
+	var gainText = document.createElement( "span" );
+	gainText.appendChild( document.createTextNode("1.00"));
+	e.appendChild( gainText );
+	this.gainText = gainText;
 
 	document.getElementById( "trackContainer" ).appendChild(e);
 	this.trackElement = e;
@@ -73,6 +105,8 @@ function Track( url ) {
 	  	return false;
 	};	
 
+	this.gain = 1.0;
+	this.currentPlaybackRate = 1.0;
 	this.loadNewTrack( url );
 }
 
@@ -134,38 +168,57 @@ Track.prototype.togglePlayback = function() {
     sourceNode.buffer = this.buffer;
     sourceNode.loop = false;
     sourceNode.playbackRate.setValueAtTime( 0.001, now );
-    sourceNode.playbackRate.linearRampToValueAtTime( 1.0, now+1 );
-    this.currentPlaybackRate = 1.0;
+    sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 
 	this.gainNode = audioContext.createGainNode();
 	this.gainNode.connect( audioContext.destination );
+	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
 
     sourceNode.noteOn( now );
     this.sourceNode = sourceNode;
     this.isPlaying = true;
-    this.lastTimeStamp = now + 0.5;		// the 0.5 is to make up for the initial "spin-up" ramp.
+    this.lastTimeStamp = now + 0.5;		// the 0.5 is to make up for the initial 1s "spin-up" ramp.
     this.lastBufferTime = 0;
-    this.lastPBR = 1.0;
+    this.lastPBR = this.currentPlaybackRate;
     return "stop";
 }
 
 Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
-    if (!this.isPlaying)
-        return;
-
+    if (!this.isPlaying) {
+    	this.currentPlaybackRate = rate;
+    	return;
+	}
     var now = audioContext.currentTime;
 
     if (this.lastTimeStamp > now)
     	return; 	// TODO: for now, we don't deal with changing pbr before the
     // initial "spin-up" is complete.
 
-    // update the position we're at in the buffer, and 
+    // update the position we're at in the buffer
     this.lastBufferTime += (now-this.lastTimeStamp) * this.lastPBR;
     // TODO: this doesn't yet handle running off the ends of the buffer (before or after)
     this.lastPBR = rate;
     this.lastTimeStamp = now;
 
+    if (this.lastBufferTime > this.buffer.duration) {	// we've run off the end
+	    this.sourceNode = null;
+		this.gainNode = null;
+		this.lastPBR = this.buffer.duration;
+		if (rate >=0)
+			return;
+		else
+			this.lastBufferTime = this.buffer.duration;
+    }
+    if (this.lastBufferTime < 0) {	// we've run backwards over the beginning
+	    this.sourceNode = null;
+		this.gainNode = null;
+		this.lastPBR = 0;
+		if (rate <= 0)
+			return;
+		else
+			this.lastBufferTime = 0;
+    }
     if ( rate == 0.0 ) {
     	// stop playing and null the sourceNode
     	if (this.sourceNode) {
@@ -207,7 +260,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    
     	sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
     	this.gainNode.gain.setValueAtTime( 0, now );
-   		this.gainNode.gain.setTargetValueAtTime( 1, now+0.01, 0.01 );
+   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
  
     	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
 	    this.sourceNode = sourceNode;
@@ -216,4 +269,8 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     this.currentPlaybackRate = rate;
 }
 
-
+Track.prototype.changeGain = function( gain ) {
+	this.gain = gain;
+	if (this.gainNode)
+		this.gainNode.gain.value = gain;
+}

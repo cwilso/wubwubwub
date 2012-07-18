@@ -49,11 +49,27 @@ function togglePlayback() {
     sourceNode.noteOn( now );
     this.sourceNode = sourceNode;
     this.isPlaying = true;
+
     return "stop";
 }
+
+var mediaNode;
+
+window.onload= function () {
+    mediaNode = audioContext.createMediaElementSource(document.getElementById('media_element'));
+    mediaNode.connect( audioContext.destination );
+}
+
 </script>
 
 <button onclick="this.innerText = togglePlayback()">start</button>
+<button onclick="if (sourceNode) { sourceNode.connect( audioContext.destination ); }">add connection</button>
+
+
+        <audio controls="controls" id='media_element'>
+            <source src="http://petervandernoord.nl/patchwork_js/audio/flim.mp3" type="audio/mp3" />
+        </audio> 
+
 
 </body>
 </html>

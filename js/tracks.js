@@ -77,6 +77,20 @@ function Track( url ) {
 	e.appendChild( gainText );
 	this.gainText = gainText;
 
+	var deck = document.createElement( "div" );
+	deck.className = "deck";
+	var disc = document.createElement( "div" );
+	disc.className = "disc";
+	var platter = document.createElement( "div" );
+	platter.className = "platter";
+	platter.appendChild( document.createTextNode("wubwubwub") );
+	this.platter = platter;
+	this.platter.style.webkitTransform = "rotate(0deg)";
+
+	disc.appendChild( platter );
+	deck.appendChild( disc );
+	e.appendChild( deck );
+
 	document.getElementById( "trackContainer" ).appendChild(e);
 	this.trackElement = e;
 	e.ondragenter = function () { 
@@ -156,6 +170,7 @@ Track.prototype.togglePlayback = function() {
 	        playback.setValueAtTime( playback.value, now );
 	        playback.setTargetValueAtTime( 0.001, now+0.001, .3 );
 	        this.gainNode.gain.setTargetValueAtTime( 0, now+1, 0.01 );
+	        this.stopTime = now + 1;
  		   	this.sourceNode.noteOff( now + 2 );
 	        this.sourceNode = null;
 	        this.gainNode = null;
@@ -180,8 +195,51 @@ Track.prototype.togglePlayback = function() {
     this.isPlaying = true;
     this.lastTimeStamp = now + 0.5;		// the 0.5 is to make up for the initial 1s "spin-up" ramp.
     this.lastBufferTime = 0;
+    this.startTime = now;
+    this.stopTime = 0;
     this.lastPBR = this.currentPlaybackRate;
+
+    updatePlatters( 0 );
     return "stop";
+}
+
+Track.prototype.updateTime = function( now ) {
+    // update the position we're at in the buffer
+    this.lastBufferTime += (now-this.lastTimeStamp) * this.lastPBR;
+    this.lastTimeStamp = now;
+}
+
+Track.prototype.updatePlatter = function() {
+    var now = audioContext.currentTime;
+    var bufferTime;
+
+	if (!this.isPlaying) {
+		if (this.stopTime) {	// still in spin-down; 
+			if (now > this.stopTime) {	// done spinning down.
+				this.stopTime = 0;
+				return false;
+			} else {
+				// bufferTime = 1/2 acceleration * t^2;  // keeping acceleration = 1 simplifies this!!
+				bufferTime = now-this.stopTime;
+				bufferTime = bufferTime * bufferTime;
+				bufferTime = bufferTime / 2;
+				bufferTime = 0.5 - bufferTime + this.lastBufferTime;
+			}
+		} else
+			return false;
+	} else if ((this.startTime + 1) > now) {	// we're still in "spin-up"
+		// bufferTime = 1/2 acceleration * t^2;  // acceleration = 1
+		bufferTime = now-this.startTime;
+		bufferTime = bufferTime * bufferTime;
+		bufferTime = bufferTime / 2;
+    } else {
+		this.updateTime( now );
+		bufferTime = this.lastBufferTime;
+	}
+	var degrees = ( bufferTime / 60 * 33 * 360) % 360;
+	var text = "rotate(" + degrees + "deg)";
+	this.platter.style.webkitTransform = text;
+	return true;	// "keep animating"
 }
 
 Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
@@ -197,7 +255,6 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 
     // update the position we're at in the buffer
     this.lastBufferTime += (now-this.lastTimeStamp) * this.lastPBR;
-    // TODO: this doesn't yet handle running off the ends of the buffer (before or after)
     this.lastPBR = rate;
     this.lastTimeStamp = now;
 
@@ -273,4 +330,21 @@ Track.prototype.changeGain = function( gain ) {
 	this.gain = gain;
 	if (this.gainNode)
 		this.gainNode.gain.value = gain;
+}
+
+var rafID = null;
+var tracks = null;
+
+function updatePlatters( time ) {
+	if (!tracks)
+		tracks = document.getElementById( "trackContainer" );
+
+	var track;
+	var keepAnimating = false;
+
+	for (var i=0; i<tracks.children.length; i++)
+		keepAnimating |= tracks.children[i].track.updatePlatter();
+
+	if (keepAnimating)
+		rafID = window.webkitRequestAnimationFrame( updatePlatters );
 }

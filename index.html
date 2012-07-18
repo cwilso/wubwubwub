@@ -6,16 +6,25 @@
 .track { border: 5px solid lime; border-radius: 10px;
     width: 400px; height: 400px;
     display: inline-block;
+    text-align: center; 
     }
 .loading { border-color: red;}
 .slider { height: 20px; width: 300px;}
 .droptarget { background: gray;}
+.deck { display: block; width: 300px; margin: 0px auto;}
+.disc { position: absolute; width: 300px; height: 300px; border:1px solid black; border-radius: 150px;}
+.platter { width:300px; height: 300px; 
+	a-webkit-transform: rotate(45deg); 
+	display: table-cell; vertical-align: middle;
+	font: 22px 'Chango', sans-serif; text-align: center }
 </style>
+<link href='http://fonts.googleapis.com/css?family=Chango' rel='stylesheet' type='text/css'>
 </head>
 <body>
 <script src="js/tracks.js"></script>
 <script src="js/visualizer.js"></script>
 <div id="trackContainer">
+
 </div>
 <i>music tracks from <a href="http://www.freesfx.co.uk">http://www.freesfx.co.uk</a>.</i>
 </body>

@@ -1,11 +1,17 @@
 var audioContext = new webkitAudioContext();
 
-window.onload = function() {
-	new Track( "../sounds/TheUnderworld.ogg" );
-	new Track( "../sounds/RapidArc.ogg" );
-};
+var leftTrack=null;
+var rightTrack=null;
+
+window.addEventListener('load', function() {
+	leftTrack = new Track( "sounds/TheUnderworld.ogg" );
+	rightTrack = new Track( "sounds/RapidArc.ogg" );
+} );
 
 
+function cue(event) {
+	event.target.classList.add("active");
+}
 // The Track object represents an in-memory track.  In order to be able to
 // reverse the playback, it also creates and keeps a reversed version of
 // the track in memory.
@@ -17,15 +23,21 @@ function Track( url ) {
 	var e = document.createElement( "div" );
 	e.track = thisTrack;
 	e.className = "track loading";
+
+	var cueButton = document.createElement( "div" );
+	cueButton.className = "cueButton";
+	cueButton.appendChild( document.createTextNode("CUE") );
+	cueButton.onclick=cue;
+	e.appendChild( cueButton );
 	var nameElement = document.createElement("div");
-	nameElement.class="name";
+	nameElement.className="name";
 	nameElement.appendChild( document.createTextNode(url) );
 	e.appendChild( nameElement );
 	var playButton = document.createElement("button");
 	playButton.appendChild( document.createTextNode("play") );
 	playButton.onclick=function(e) { 
 		if (this.parentNode.track) 
-			this.innerText = this.parentNode.track.togglePlayback()
+			this.innerText = this.parentNode.track.togglePlaybackSpinUpDown()
 	};
 	e.appendChild( playButton );
 
@@ -40,11 +52,7 @@ function Track( url ) {
 	pbrSlider.step = "0.01";
 	pbrSlider.value = "1";
 	pbrSlider.oninput = function(event) {
-		var track = this.parentNode.track;
-		if (track) { 
-			track.changePlaybackRate(event.target.value);
-			track.pbrText.innerText = event.target.value;
-		}
+		this.parentNode.track.changePlaybackRate(event.target.value);
 	};
 	e.appendChild( pbrSlider );
 
@@ -60,15 +68,11 @@ function Track( url ) {
 	gainSlider.className = "slider";
 	gainSlider.type = "range";
 	gainSlider.min = "0";
-	gainSlider.max = "3";
+	gainSlider.max = "2";
 	gainSlider.step = "0.01";
 	gainSlider.value = "1";
 	gainSlider.oninput = function(event) {
-		var track = this.parentNode.track;
-		if (track) { 
-			track.changeGain(event.target.value);
-			track.gainText.innerText = event.target.value;
-		}
+		this.parentNode.track.changeGain(event.target.value);
 	};
 	e.appendChild( gainSlider );
 
@@ -107,7 +111,7 @@ function Track( url ) {
 	  	reader.onload = function (event) {
 	  		audioContext.decodeAudioData( event.target.result, function(buffer) {
 		    	thisTrack.buffer = buffer;
-		    	thisTrack.revBuffer = thisTrack.reverseBuffer( buffer );
+		    	thisTrack.revBuffer = reverseBuffer( buffer );
 		    	thisTrack.trackElement.classList.remove( "loading" );
 	  		}, function(){alert("error loading!");} ); 
 
@@ -120,11 +124,20 @@ function Track( url ) {
 	};	
 
 	this.gain = 1.0;
+	this.gainSlider = gainSlider;
+	this.pbrSlider = pbrSlider;
 	this.currentPlaybackRate = 1.0;
+    this.lastBufferTime = 0.0;
+	this.isPlaying = false;
 	this.loadNewTrack( url );
+	this.xfadeGain = audioContext.createGainNode();
+	this.xfadeGain.gain.value = 0.5;
+	this.xfadeGain.connect(audioContext.destination);
+	this.cuePoint = 0.0;
+	this.cueButton = cueButton;
 }
 
-Track.prototype.reverseBuffer = function( buffer ) {
+function reverseBuffer( buffer ) {
 	var newBuffer = audioContext.createBuffer( buffer.numberOfChannels, buffer.length, buffer.sampleRate );
 	if ( newBuffer ) {
 		var length = buffer.length;
@@ -152,14 +165,73 @@ Track.prototype.loadNewTrack = function( url ) {
 	request.onload = function() {
 	  audioContext.decodeAudioData( request.response, function(buffer) { 
 	    	track.buffer = buffer;
-	    	track.revBuffer = track.reverseBuffer( buffer );
+	    	track.revBuffer = reverseBuffer( buffer );
 	    	track.trackElement.classList.remove( "loading" );
 		} );
 	}
 	request.send();
 }
 
-Track.prototype.togglePlayback = function() {
+Track.prototype.setCuePointAtCurrentTime = function() {
+	// save the current time
+	this.updatePlatter();
+	this.cuePoint = this.lastBufferTime;
+	this.cueButton.classList.add("active");
+}
+
+Track.prototype.clearCuePoint = function() {
+	this.cuePoint = 0.0;
+	this.cueButton.classList.remove("active");
+}
+
+Track.prototype.jumpToCuePoint = function() {
+	if (this.isPlaying)
+		this.togglePlayback();
+	this.lastBufferTime = this.cuePoint;
+	this.togglePlayback();
+}
+
+// play a short snippet of sound
+Track.prototype.playSnippet = function() {
+	var now = audioContext.currentTime;
+	var then = now + 11.0/360.0;	// one tick
+    var sourceNode = audioContext.createBufferSource();
+	var gainNode = audioContext.createGainNode();
+
+    sourceNode.loop = false;
+	gainNode.connect( this.xfadeGain );
+    sourceNode.connect( gainNode );
+    sourceNode.buffer = (this.currentPlaybackRate>0) ? this.buffer : this.revBuffer;
+    var startTime = (this.currentPlaybackRate>0) ? this.lastBufferTime : sourceNode.buffer.duration-this.lastBufferTime;
+    
+    // for now, let's try full playback rate
+	// sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
+//	this.gainNode.gain.setValueAtTime( 0, now );
+//	this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
+	gainNode.gain.value = this.gain;
+
+	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
+	sourceNode.noteOff( then );
+}
+
+Track.prototype.skip = function( ticks ) {
+	var restart = false;
+	if (this.isPlaying) {
+		restart = true;
+		this.togglePlayback();
+	}
+	this.lastBufferTime += ticks * 11/360;
+	if (this.lastBufferTime<0.0)
+		this.lastBufferTime = 0.0;
+	if ( restart )
+		this.togglePlayback();
+	  else {
+	  	this.updatePlatter();
+	  	this.playSnippet();
+	  }
+}
+
+Track.prototype.togglePlaybackSpinUpDown = function() {
     var now = audioContext.currentTime;
 
     if (this.isPlaying) {
@@ -186,7 +258,7 @@ Track.prototype.togglePlayback = function() {
     sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 
 	this.gainNode = audioContext.createGainNode();
-	this.gainNode.connect( audioContext.destination );
+	this.gainNode.connect( this.xfadeGain );
 	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
 
@@ -194,12 +266,38 @@ Track.prototype.togglePlayback = function() {
     this.sourceNode = sourceNode;
     this.isPlaying = true;
     this.lastTimeStamp = now + 0.5;		// the 0.5 is to make up for the initial 1s "spin-up" ramp.
-    this.lastBufferTime = 0;
+    this.lastBufferTime = 0.0;
     this.startTime = now;
+    this.stopTime = 0.0;
+    this.lastPBR = this.currentPlaybackRate;
+
+    updatePlatters( 0 );
+    return "stop";
+}
+
+Track.prototype.togglePlayback = function() {
+    var now = audioContext.currentTime;
+
+    if (this.isPlaying) {
+        //stop playing and return
+        if (this.sourceNode) {  // we may not have a sourceNode, if our PBR is zero.
+	        this.stopTime = 0;
+ 		   	this.sourceNode.noteOff( now );
+	        this.sourceNode = null;
+	        this.gainNode = null;
+        }
+        this.isPlaying = false;
+        return "play";
+    }
+
+    this.isPlaying = true;
+    this.lastTimeStamp = now;
+    this.startTime = now-1;	// skips our "spin-up" animation
     this.stopTime = 0;
     this.lastPBR = this.currentPlaybackRate;
 
     updatePlatters( 0 );
+    this.changePlaybackRate(this.lastPBR);
     return "stop";
 }
 
@@ -224,9 +322,10 @@ Track.prototype.updatePlatter = function() {
 				bufferTime = bufferTime * bufferTime;
 				bufferTime = bufferTime / 2;
 				bufferTime = 0.5 - bufferTime + this.lastBufferTime;
+				this.lastBufferTime = bufferTime;
 			}
 		} else
-			return false;
+		bufferTime = this.lastBufferTime;
 	} else if ((this.startTime + 1) > now) {	// we're still in "spin-up"
 		// bufferTime = 1/2 acceleration * t^2;  // acceleration = 1
 		bufferTime = now-this.startTime;
@@ -239,10 +338,11 @@ Track.prototype.updatePlatter = function() {
 	var degrees = ( bufferTime / 60 * 33 * 360) % 360;
 	var text = "rotate(" + degrees + "deg)";
 	this.platter.style.webkitTransform = text;
-	return true;	// "keep animating"
+	return true;	// "keep animating" - may need to check if !isplaying
 }
 
 Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
+	this.pbrText.innerText = parseFloat(rate).toFixed(2);
     if (!this.isPlaying) {
     	this.currentPlaybackRate = rate;
     	return;
@@ -310,14 +410,15 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    var sourceNode = audioContext.createBufferSource();
 	    sourceNode.loop = false;
 		this.gainNode = audioContext.createGainNode();
-		this.gainNode.connect( audioContext.destination );
+		this.gainNode.connect( this.xfadeGain );
 	    sourceNode.connect( this.gainNode );
 	    sourceNode.buffer = (rate>0) ? this.buffer : this.revBuffer;
 	    var startTime = (rate>0) ? this.lastBufferTime : sourceNode.buffer.duration-this.lastBufferTime;
 	    
     	sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
-    	this.gainNode.gain.setValueAtTime( 0, now );
-   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
+//    	this.gainNode.gain.setValueAtTime( 0, now );
+//   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
+		this.gainNode.gain.value = this.gain;
  
     	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
 	    this.sourceNode = sourceNode;
@@ -327,9 +428,11 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 }
 
 Track.prototype.changeGain = function( gain ) {
+	gain = parseFloat(gain).toFixed(2);
 	this.gain = gain;
 	if (this.gainNode)
 		this.gainNode.gain.value = gain;
+	this.gainText.innerText = gain;
 }
 
 var rafID = null;

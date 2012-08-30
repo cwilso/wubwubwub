@@ -8,6 +8,7 @@ var msg;
 var selectedIn;
 var selectedOut;
 var lastNote = -1;
+var filterTrack = null;
 
 function playSound(buffer) {
   var source = audioContext.createBufferSource(); // creates a sound source
@@ -23,6 +24,21 @@ function crossfade(value) {
 
   leftTrack.xfadeGain.gain.value = gain1;
   rightTrack.xfadeGain.gain.value = gain2;
+}
+
+// logResponse gives us a more "musical" frequency response
+// for filter frequency, etc, for a control dial - it gives a
+// 2^x exponential curve response for an input of [0,1], returning [0,1].
+function logResponse( input ) {
+   return ( Math.pow(2,((input*4)-1)) - 0.5)/7.5;
+}
+
+function turnOffLeftPlayButton() {
+  Jazz.MidiOut( 0x80, 0x3b, 0x01 );
+}
+
+function turnOffRightPlayButton() {
+  Jazz.MidiOut( 0x80, 0x42, 0x01 );
 }
 
 function midiProc(t,a,b,c) {
@@ -49,6 +65,7 @@ function midiProc(t,a,b,c) {
           leftTrack.jumpToCuePoint();
           // light up the play button
           Jazz.MidiOut( (leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01);
+          leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
         } else {
           leftTrack.setCuePointAtCurrentTime();
           // light up the Deck A cue button
@@ -56,16 +73,27 @@ function midiProc(t,a,b,c) {
         }
         break;
       case 0x3b:  // Deck A play/pause
+        leftTrack.cuePointIsActive = false;
+        leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
         leftTrack.togglePlayback();
         Jazz.MidiOut( (leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01);
         break;
       case 0x40:  // Deck A sync
         break;
       case 0x65:  // Deck A PFL
+        if (filterTrack == leftTrack) {
+          filterTrack = null;
+          Jazz.MidiOut( 0x80, 0x65, 0x01 );
+        } else {
+          filterTrack = leftTrack;
+          Jazz.MidiOut( 0x90, 0x65, 0x01 );
+        }
+        Jazz.MidiOut( 0x80, 0x66, 0x01 );
         break;
       case 0x4b:  // Deck A load
         break;
       case 0x43:  // Deck A pitch bend +
+        leftTrack.setCuePointEndAtCurrentTime();
         break;
       case 0x44:  // Deck A pitch bend -
         leftTrack.clearCuePoint();
@@ -79,6 +107,7 @@ function midiProc(t,a,b,c) {
           // jump to cuePoint
           rightTrack.jumpToCuePoint();
           Jazz.MidiOut( (rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01);
+          rightTrack.onPlaybackEnd = turnOffRightPlayButton;
         } else {
           rightTrack.setCuePointAtCurrentTime();
           // light up the Deck B cue button
@@ -87,16 +116,27 @@ function midiProc(t,a,b,c) {
         }
         break;
       case 0x42:  // Deck B play/pause
+        rightTrack.cuePointIsActive = false;
+        rightTrack.onPlaybackEnd = turnOffRightPlayButton;
         rightTrack.togglePlayback();
         Jazz.MidiOut( (rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01);
         break;
       case 0x47:  // Deck B sync
         break;
-      case 0x66:  // Deck B PFL
+      case 0x66:  // Deck B PFL - select deck B for filter
+        if (filterTrack == rightTrack) {
+          filterTrack = null;
+          Jazz.MidiOut( 0x80, 0x66, 0x01 );
+        } else {
+          filterTrack = rightTrack;
+          Jazz.MidiOut( 0x90, 0x66, 0x01 );
+        }
+        Jazz.MidiOut( 0x80, 0x65, 0x01 );
         break;
       case 0x34:  // Deck B load
         break;
       case 0x45:  // Deck B pitch bend +
+        rightTrack.setCuePointEndAtCurrentTime();
         break;
       case 0x46:  // Deck B pitch bend -
         rightTrack.clearCuePoint();
@@ -124,6 +164,11 @@ function midiProc(t,a,b,c) {
         document.getElementById("xfader").value = val;
         break;
 
+      case 0x0b: // Headphone gain - filter resonance
+        if (filterTrack)
+          filterTrack.filter.Q.value = ( c / 127.0 ) * 50;
+        break;
+
       case 0x0d: // Deck A Pitch:  range of 0.92 - 1.08 (+/- 8%)
         leftTrack.pbrSlider.value = 0.92 + 0.16 * c / 127.0;
         leftTrack.changePlaybackRate( leftTrack.pbrSlider.value );
@@ -134,7 +179,9 @@ function midiProc(t,a,b,c) {
         rightTrack.changePlaybackRate( rightTrack.pbrSlider.value );
         break;
 
-      case 0x17: // Master Gain
+      case 0x17: // Master Gain - filter frequency
+        if (filterTrack)
+          filterTrack.filter.frequency.value = logResponse( c / 127.0 ) * 20000.0;
         break;
 
       case 0x1a: // Browse wheel

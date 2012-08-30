@@ -2,6 +2,7 @@ var audioContext = new webkitAudioContext();
 
 var leftTrack=null;
 var rightTrack=null;
+var FADE=0.06;
 
 window.addEventListener('load', function() {
 	leftTrack = new Track( "sounds/TheUnderworld.ogg" );
@@ -24,15 +25,19 @@ function Track( url ) {
 	e.track = thisTrack;
 	e.className = "track loading";
 
+	// It is important that this element be the first child!
+	// when we load a new file, it changes child[0].
+	var nameElement = document.createElement("div");
+	nameElement.className="name";
+	nameElement.appendChild( document.createTextNode(url) );
+	e.appendChild( nameElement );
+
 	var cueButton = document.createElement( "div" );
 	cueButton.className = "cueButton";
 	cueButton.appendChild( document.createTextNode("CUE") );
 	cueButton.onclick=cue;
 	e.appendChild( cueButton );
-	var nameElement = document.createElement("div");
-	nameElement.className="name";
-	nameElement.appendChild( document.createTextNode(url) );
-	e.appendChild( nameElement );
+
 	var playButton = document.createElement("button");
 	playButton.appendChild( document.createTextNode("play") );
 	playButton.onclick=function(e) { 
@@ -133,6 +138,10 @@ function Track( url ) {
 	this.xfadeGain = audioContext.createGainNode();
 	this.xfadeGain.gain.value = 0.5;
 	this.xfadeGain.connect(audioContext.destination);
+	this.filter = audioContext.createBiquadFilter();
+	this.filter.frequency.value = 20000.0;
+	this.filter.type = this.filter.LOWPASS;
+	this.filter.connect( this.xfadeGain );
 	this.cuePoint = 0.0;
 	this.cueButton = cueButton;
 }
@@ -179,6 +188,13 @@ Track.prototype.setCuePointAtCurrentTime = function() {
 	this.cueButton.classList.add("active");
 }
 
+Track.prototype.setCuePointEndAtCurrentTime = function() {
+	// save the current time
+	this.updatePlatter();
+	this.cuePointEnd = this.lastBufferTime;
+//	this.cueButton.classList.add("active");
+}
+
 Track.prototype.clearCuePoint = function() {
 	this.cuePoint = 0.0;
 	this.cueButton.classList.remove("active");
@@ -187,6 +203,7 @@ Track.prototype.clearCuePoint = function() {
 Track.prototype.jumpToCuePoint = function() {
 	if (this.isPlaying)
 		this.togglePlayback();
+	this.cuePointIsActive = true;
 	this.lastBufferTime = this.cuePoint;
 	this.togglePlayback();
 }
@@ -194,12 +211,13 @@ Track.prototype.jumpToCuePoint = function() {
 // play a short snippet of sound
 Track.prototype.playSnippet = function() {
 	var now = audioContext.currentTime;
-	var then = now + 11.0/360.0;	// one tick
+	var snippetLength = 11.0/360.0;
+	var then = now + snippetLength;	// one tick
     var sourceNode = audioContext.createBufferSource();
 	var gainNode = audioContext.createGainNode();
 
     sourceNode.loop = false;
-	gainNode.connect( this.xfadeGain );
+	gainNode.connect( this.filter );
     sourceNode.connect( gainNode );
     sourceNode.buffer = (this.currentPlaybackRate>0) ? this.buffer : this.revBuffer;
     var startTime = (this.currentPlaybackRate>0) ? this.lastBufferTime : sourceNode.buffer.duration-this.lastBufferTime;
@@ -208,10 +226,13 @@ Track.prototype.playSnippet = function() {
 	// sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
 //	this.gainNode.gain.setValueAtTime( 0, now );
 //	this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
-	gainNode.gain.value = this.gain;
+    gainNode.gain.setValueAtTime( 0.0, now );
+    gainNode.gain.exponentialRampToValueAtTime( this.gain, now+FADE );
+    gainNode.gain.setValueAtTime( this.gain, then );
+    gainNode.gain.exponentialRampToValueAtTime( 0, then+FADE );
 
 	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
-	sourceNode.noteOff( then );
+	sourceNode.noteOff( then+FADE );
 }
 
 Track.prototype.skip = function( ticks ) {
@@ -233,6 +254,8 @@ Track.prototype.skip = function( ticks ) {
 
 Track.prototype.togglePlaybackSpinUpDown = function() {
     var now = audioContext.currentTime;
+
+	this.cuePointIsActive = false;
 
     if (this.isPlaying) {
         //stop playing and return
@@ -258,7 +281,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
     sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 
 	this.gainNode = audioContext.createGainNode();
-	this.gainNode.connect( this.xfadeGain );
+	this.gainNode.connect( this.filter );
 	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
 
@@ -282,7 +305,9 @@ Track.prototype.togglePlayback = function() {
         //stop playing and return
         if (this.sourceNode) {  // we may not have a sourceNode, if our PBR is zero.
 	        this.stopTime = 0;
- 		   	this.sourceNode.noteOff( now );
+	        this.gainNode.gain.setValueAtTime( this.gainNode.gain.value, now );
+	        this.gainNode.gain.exponentialRampToValueAtTime( 0, now+FADE );
+ 		   	this.sourceNode.noteOff( now + FADE );
 	        this.sourceNode = null;
 	        this.gainNode = null;
         }
@@ -325,20 +350,28 @@ Track.prototype.updatePlatter = function() {
 				this.lastBufferTime = bufferTime;
 			}
 		} else
-		bufferTime = this.lastBufferTime;
+			bufferTime = this.lastBufferTime;
 	} else if ((this.startTime + 1) > now) {	// we're still in "spin-up"
 		// bufferTime = 1/2 acceleration * t^2;  // acceleration = 1
 		bufferTime = now-this.startTime;
 		bufferTime = bufferTime * bufferTime;
 		bufferTime = bufferTime / 2;
     } else {
+    	if ( this.sourceNode && this.sourceNode.playbackState == this.sourceNode.FINISHED_STATE ) {
+    		// source node is done playing - shut everything down!
+	        this.sourceNode = null;
+	        this.gainNode = null;
+    		this.isPlaying = false;
+    		if (this.onPlaybackEnd)
+    			this.onPlaybackEnd();
+    	}
 		this.updateTime( now );
 		bufferTime = this.lastBufferTime;
 	}
 	var degrees = ( bufferTime / 60 * 33 * 360) % 360;
 	var text = "rotate(" + degrees + "deg)";
 	this.platter.style.webkitTransform = text;
-	return true;	// "keep animating" - may need to check if !isplaying
+	return this.isPlaying;	// "keep animating" - may need to check if !isplaying
 }
 
 Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
@@ -395,7 +428,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    if (((this.currentPlaybackRate > 0) && (rate < 0)) ||
 	    	((this.currentPlaybackRate < 0) && (rate > 0))	) {
 	    	if (this.sourceNode) {
-				this.gainNode.gain.setTargetValueAtTime( 0, now, 0.01 );
+				this.gainNode.gain.setTargetValueAtTime( 0, now, FADE );
 				this.sourceNode.noteOff(now + 0.1);
 				this.sourceNode = null;
 				this.gainNode = null;
@@ -410,7 +443,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    var sourceNode = audioContext.createBufferSource();
 	    sourceNode.loop = false;
 		this.gainNode = audioContext.createGainNode();
-		this.gainNode.connect( this.xfadeGain );
+		this.gainNode.connect( this.filter );
 	    sourceNode.connect( this.gainNode );
 	    sourceNode.buffer = (rate>0) ? this.buffer : this.revBuffer;
 	    var startTime = (rate>0) ? this.lastBufferTime : sourceNode.buffer.duration-this.lastBufferTime;
@@ -418,9 +451,11 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
 //    	this.gainNode.gain.setValueAtTime( 0, now );
 //   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
-		this.gainNode.gain.value = this.gain;
- 
-    	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
+    	var duration = ( this.cuePointIsActive && this.cuePointEnd ) ? 
+    		(this.cuePointEnd - startTime) : (sourceNode.buffer.duration - startTime);
+        this.gainNode.gain.setValueAtTime( 0.0, now );
+        this.gainNode.gain.exponentialRampToValueAtTime( this.gain, now+FADE );
+    	sourceNode.noteGrainOn( now, startTime, duration );
 	    this.sourceNode = sourceNode;
 	} else
 	    this.sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );

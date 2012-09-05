@@ -275,17 +275,18 @@ function onMIDIInit( midi ) {
     selectMIDIOut.onchange = changeMIDIOut;
   }
 
-/*
   // clear all the LEDs
-  Jazz.MidiOut( 0x80,0x3b,0x01 ); // Deck A play/pause
-  Jazz.MidiOut( 0x80,0x33,0x01 ); // Deck A cue
-  Jazz.MidiOut( 0x80,0x40,0x01 ); // Deck A sync
-  Jazz.MidiOut( 0x80,0x65,0x01 ); // Deck A PFL
-  Jazz.MidiOut( 0x80,0x42,0x01 ); // Deck B play/pause
-  Jazz.MidiOut( 0x80,0x3c,0x01 ); // Deck B cue
-  Jazz.MidiOut( 0x80,0x47,0x01 ); // Deck B sync
-  Jazz.MidiOut( 0x80,0x66,0x01 ); // Deck B PFL
-*/
+  if (midiOut) {
+    midiOut.sendMessage( 0x80,0x3b,0x01 ); // Deck A play/pause
+    midiOut.sendMessage( 0x80,0x33,0x01 ); // Deck A cue
+    midiOut.sendMessage( 0x80,0x40,0x01 ); // Deck A sync
+    midiOut.sendMessage( 0x80,0x65,0x01 ); // Deck A PFL
+    midiOut.sendMessage( 0x80,0x42,0x01 ); // Deck B play/pause
+    midiOut.sendMessage( 0x80,0x3c,0x01 ); // Deck B cue
+    midiOut.sendMessage( 0x80,0x47,0x01 ); // Deck B sync
+    midiOut.sendMessage( 0x80,0x66,0x01 ); // Deck B PFL
+  }
+
 }
 
 function onMIDIFail( err ) {

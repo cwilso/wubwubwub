@@ -4,15 +4,6 @@ var leftTrack=null;
 var rightTrack=null;
 var FADE=0.06;
 
-window.addEventListener('load', function() {
-	leftTrack = new Track( "sounds/TheUnderworld.ogg" );
-	rightTrack = new Track( "sounds/RapidArc.ogg" );
-} );
-
-
-function cue(event) {
-	event.target.classList.add("active");
-}
 // The Track object represents an in-memory track.  In order to be able to
 // reverse the playback, it also creates and keeps a reversed version of
 // the track in memory.

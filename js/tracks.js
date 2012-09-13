@@ -2,17 +2,8 @@ var audioContext = new webkitAudioContext();
 
 var leftTrack=null;
 var rightTrack=null;
-var FADE=0.06;
+var FADE=0.01;
 
-window.addEventListener('load', function() {
-	leftTrack = new Track( "sounds/TheUnderworld.ogg" );
-	rightTrack = new Track( "sounds/RapidArc.ogg" );
-} );
-
-
-function cue(event) {
-	event.target.classList.add("active");
-}
 // The Track object represents an in-memory track.  In order to be able to
 // reverse the playback, it also creates and keeps a reversed version of
 // the track in memory.
@@ -224,15 +215,14 @@ Track.prototype.playSnippet = function() {
     
     // for now, let's try full playback rate
 	// sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
-//	this.gainNode.gain.setValueAtTime( 0, now );
-//	this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
+
+	// fade the sound in and out to avoid "clicking"
     gainNode.gain.setValueAtTime( 0.0, now );
-    gainNode.gain.exponentialRampToValueAtTime( this.gain, now+FADE );
-    gainNode.gain.setValueAtTime( this.gain, then );
-    gainNode.gain.exponentialRampToValueAtTime( 0, then+FADE );
+    gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
+    gainNode.gain.setTargetValueAtTime( 0.0, then, FADE );
 
 	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
-	sourceNode.noteOff( then+FADE );
+	sourceNode.noteOff( then+snippetLength );
 }
 
 Track.prototype.skip = function( ticks ) {
@@ -305,10 +295,9 @@ Track.prototype.togglePlayback = function() {
         //stop playing and return
         if (this.sourceNode) {  // we may not have a sourceNode, if our PBR is zero.
 	        this.stopTime = 0;
-	        this.gainNode.gain.setValueAtTime( this.gainNode.gain.value, now );
-	        this.gainNode.gain.exponentialRampToValueAtTime( 0, now+FADE );
- 		   	this.sourceNode.noteOff( now + FADE );
-	        this.sourceNode = null;
+		    this.gainNode.gain.setTargetValueAtTime( 0.0, now, FADE );
+ 		   	this.sourceNode.noteOff( now + FADE*4 );
+ 	        this.sourceNode = null;
 	        this.gainNode = null;
         }
         this.isPlaying = false;
@@ -429,7 +418,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    	((this.currentPlaybackRate < 0) && (rate > 0))	) {
 	    	if (this.sourceNode) {
 				this.gainNode.gain.setTargetValueAtTime( 0, now, FADE );
-				this.sourceNode.noteOff(now + 0.1);
+				this.sourceNode.noteOff(now + FADE*4);
 				this.sourceNode = null;
 				this.gainNode = null;
 	    	}
@@ -453,8 +442,8 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 //   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
     	var duration = ( this.cuePointIsActive && this.cuePointEnd ) ? 
     		(this.cuePointEnd - startTime) : (sourceNode.buffer.duration - startTime);
-        this.gainNode.gain.setValueAtTime( 0.0, now );
-        this.gainNode.gain.exponentialRampToValueAtTime( this.gain, now+FADE );
+        this.gainNode.gain.value = 0.0;
+        this.gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
     	sourceNode.noteGrainOn( now, startTime, duration );
 	    this.sourceNode = sourceNode;
 	} else

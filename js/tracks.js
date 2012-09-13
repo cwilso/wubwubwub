@@ -2,7 +2,7 @@ var audioContext = new webkitAudioContext();
 
 var leftTrack=null;
 var rightTrack=null;
-var FADE=0.06;
+var FADE=0.01;
 
 // The Track object represents an in-memory track.  In order to be able to
 // reverse the playback, it also creates and keeps a reversed version of
@@ -217,13 +217,13 @@ Track.prototype.playSnippet = function() {
 	// sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
 //	this.gainNode.gain.setValueAtTime( 0, now );
 //	this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
-    gainNode.gain.setValueAtTime( 0.0, now );
-    gainNode.gain.exponentialRampToValueAtTime( this.gain, now+FADE );
-    gainNode.gain.setValueAtTime( this.gain, then );
-    gainNode.gain.exponentialRampToValueAtTime( 0, then+FADE );
+    gainNode.gain.setValueAtTime( 0.001, now );
+    gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
+//    gainNode.gain.setValueAtTime( this.gain, then );
+    gainNode.gain.setTargetValueAtTime( 0.001, then, FADE );
 
 	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
-	sourceNode.noteOff( then+FADE );
+	sourceNode.noteOff( then+snippetLength );
 }
 
 Track.prototype.skip = function( ticks ) {

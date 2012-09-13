@@ -156,7 +156,7 @@ function midiMessageReceived(msgs) {
 
         case 0x0b: // Headphone gain - filter resonance
           if (filterTrack)
-            filterTrack.filter.Q.value = ( velocity / 127.0 ) * 50;
+            filterTrack.filter.Q.value = ( velocity / 127.0 ) * 20;
           break;
 
         case 0x0d: // Deck A Pitch:  range of 0.92 - 1.08 (+/- 8%)

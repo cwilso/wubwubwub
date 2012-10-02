@@ -1,5 +1,5 @@
 body { background: black; }
-.track { background: #666; border: 5px solid lime; border-radius: 10px;
+.track { background: url("../img/bkg.gif") #666; border: 5px solid lime; border-radius: 10px;
     width: 400px; height: 430px;
     display: inline-block;
     text-align: center;

@@ -20,7 +20,11 @@ function Track( url ) {
 	// when we load a new file, it changes child[0].
 	var nameElement = document.createElement("div");
 	nameElement.className="name";
-	nameElement.appendChild( document.createTextNode(url) );
+	var name = url.slice( url.lastIndexOf("/") + 1 );
+	var dot = name.lastIndexOf(".");
+	if (dot != -1)
+		name = name.slice( 0, dot );
+	nameElement.appendChild( document.createTextNode(name) );
 	e.appendChild( nameElement );
 
 	var cueButton = document.createElement( "div" );
@@ -29,15 +33,22 @@ function Track( url ) {
 	cueButton.onclick=cue;
 	e.appendChild( cueButton );
 
-	var playButton = document.createElement("button");
-	playButton.appendChild( document.createTextNode("play") );
-	playButton.onclick=function(e) { 
-		if (this.parentNode.track) 
-			this.innerText = this.parentNode.track.togglePlaybackSpinUpDown()
-	};
-	e.appendChild( playButton );
+	var powerButton = document.createElement("div");
+	powerButton.className = "powerButton";
 
-	e.appendChild( document.createElement("br") );
+	var powerImg = document.createElement("img");
+	powerImg.src = "img/power.png";
+	powerButton.appendChild( powerImg );
+	powerButton.onclick=function(e) { 
+		if (this.parentNode.track) {
+			if ( this.parentNode.track.togglePlaybackSpinUpDown() )
+				this.classList.add("active");
+			  else
+			  	this.classList.remove("active");
+		}
+	};
+	e.appendChild( powerButton );
+
 	e.appendChild( document.createTextNode("rate") );
 
 	var pbrSlider = document.createElement("input");
@@ -253,15 +264,15 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
 	        var playback = this.sourceNode.playbackRate;
 	        playback.cancelScheduledValues( now );
 	        playback.setValueAtTime( playback.value, now );
-	        playback.setTargetValueAtTime( 0.001, now+0.001, .3 );
+	        playback.linearRampToValueAtTime( 0.001, now+1 );
 	        this.gainNode.gain.setTargetValueAtTime( 0, now+1, 0.01 );
-	        this.stopTime = now + 1;
+	        this.stopTime = now;
  		   	this.sourceNode.noteOff( now + 2 );
 	        this.sourceNode = null;
 	        this.gainNode = null;
         }
         this.isPlaying = false;
-        return "play";
+        return false;
     }
 
     sourceNode = audioContext.createBufferSource();
@@ -285,7 +296,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
     this.lastPBR = this.currentPlaybackRate;
 
     updatePlatters( 0 );
-    return "stop";
+    return true;
 }
 
 Track.prototype.togglePlayback = function() {
@@ -324,19 +335,21 @@ Track.prototype.updateTime = function( now ) {
 Track.prototype.updatePlatter = function() {
     var now = audioContext.currentTime;
     var bufferTime;
+    var keepAnimating = this.isPlaying;
 
 	if (!this.isPlaying) {
 		if (this.stopTime) {	// still in spin-down; 
-			if (now > this.stopTime) {	// done spinning down.
+			if (now > (this.stopTime + 1) ) {	// done spinning down.
 				this.stopTime = 0;
 				return false;
 			} else {
 				// bufferTime = 1/2 acceleration * t^2;  // keeping acceleration = 1 simplifies this!!
-				bufferTime = now-this.stopTime;
+				bufferTime = 1 - (now-this.stopTime);
 				bufferTime = bufferTime * bufferTime;
 				bufferTime = bufferTime / 2;
 				bufferTime = 0.5 - bufferTime + this.lastBufferTime;
-				this.lastBufferTime = bufferTime;
+				keepAnimating = true;
+//				console.log( "now:" + now + " stopTime:" + this.stopTime + " bufferTime:" + bufferTime );
 			}
 		} else
 			bufferTime = this.lastBufferTime;
@@ -360,7 +373,7 @@ Track.prototype.updatePlatter = function() {
 	var degrees = ( bufferTime / 60 * 33 * 360) % 360;
 	var text = "rotate(" + degrees + "deg)";
 	this.platter.style.webkitTransform = text;
-	return this.isPlaying;	// "keep animating" - may need to check if !isplaying
+	return keepAnimating;	// "keep animating" - may need to check if !isplaying
 }
 
 Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative

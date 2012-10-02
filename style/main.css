@@ -1,15 +1,22 @@
-.track { border: 5px solid lime; border-radius: 10px;
-    width: 400px; height: 400px;
+body { background: black; }
+.track { background: #666; border: 5px solid lime; border-radius: 10px;
+    width: 400px; height: 430px;
     display: inline-block;
     text-align: center;
     position: relative;
+    margin: 10px;
+    color: white;
+    font-family: Arial, sans-serif;
     }
+.name { color: #ddd; font: 18px Arial, sans-serif; margin: 10px 0px 5px;}
+.aligner { width: 860px; margin: 0px auto;}
 .loading { border-color: red;}
 .slider { height: 20px; width: 300px;}
-.xfade { margin-left: 110px; height:20px; width: 600px;}
+.xfade { display:block; margin: 20px auto; height:20px; width: 600px;}
 .droptarget { background: gray;}
-.deck { display: block; width: 300px; margin: 0px auto;}
-.disc { position: absolute; width: 300px; height: 300px; border:1px solid black; border-radius: 150px;}
+.deck { color: black; display: block; width: 300px; margin: 10px auto;}
+.disc { background: black; color: white; position: absolute; width: 300px; height: 300px; 
+	border:10px solid white; border-radius: 160px;}
 .platter { width:300px; height: 300px; 
 	a-webkit-transform: rotate(45deg); 
 	display: table-cell; vertical-align: middle;
@@ -41,6 +48,31 @@
 	box-shadow:inset 0 2px 6px #fff,0 3px 3px rgba(0,0,0,0.6)
 }
 
+.powerButton {
+	-webkit-box-shadow: white 0px 1px 1px 0px inset, rgba(0, 0, 0, 0.597656) 0px 3px 3px 0px;
+	background-color: #B6D3F4;
+	background-image: -webkit-linear-gradient(top, #B6D3F4, #5483B8);
+	border: 1px solid #9AC9FF;
+	border-radius: 18px;
+	box-shadow: white 0px 1px 1px 0px inset, rgba(0, 0, 0, 0.597656) 0px 3px 3px 0px;
+	color: #555;
+	display: block;
+	font: 15px "Chango", 'Lucida Grande', sans-serif;
+	padding: 1px 7px 0px 7px;
+	position: absolute;
+	text-shadow: rgba(0, 0, 0, 0.296875) 0px -1px 0px;
+	bottom: 5px;
+	right: 5px;
+}
+.powerButton.active {
+	background-color: red;
+	background-image: -webkit-linear-gradient(top, red, pink);
+	border: 1px solid #FFC99A;
+}
+.powerButton img { width: 15px; height: 15px; }
+
+.license { color: #666; text-align: right }
+.midi { color: #ddd; font: 12pt Arial, sans-serif; margin: 10px 0px;}
 input[type="range"] {
     -webkit-appearance: none;
     background-color: gray;

@@ -11,20 +11,22 @@
 <script src="js/midi.js"></script>
 <script src="js/tracks.js"></script>
 <script src="js/visualizer.js"></script>
-<input id="xfader" class="xfade" type="range" min="0.0" max="1.0" step="0.01" value="0.5" oninput="crossfade(event.target.value)">
-<div id="trackContainer">
-
+<div class="aligner">
+	<div id="trackContainer">
+	</div>
+	<input id="xfader" class="xfade" type="range" min="0.0" max="1.0" step="0.01" value="0.5" oninput="crossfade(event.target.value)">
+	<div class="midi">MIDI Input: <select id=midiIn onchange='changeMidiIn();'>
+				<option value="">Not connected</option>
+			</select>
+		 MIDI Output:
+			<select id=midiOut onchange='changeMidiOut();'>
+				<option value="">Not connected</option>
+			</select>
+	</div>
 </div>
-	<p>
-		MIDI Input:
-		<select id=midiIn onchange='changeMidiIn();'>
-			<option value="">Not connected</option>
-		</select>
-		MIDI Output:
-		<select id=midiOut onchange='changeMidiOut();'>
-			<option value="">Not connected</option>
-		</select>
-	</p>
-<i>music tracks from <a href="http://www.freesfx.co.uk">http://www.freesfx.co.uk</a>.</i>
+
+
+<div class="license"><i>music tracks from <a href="http://www.freesfx.co.uk">http://www.freesfx.co.uk</a>.</i></div>
+	<a href="https://github.com/cwilso/wubwubwub" class="header" style="position: absolute; z-index:2; top: 0; right: 0; border: 0;"><img src="img/forkme.png" alt="Fork me on GitHub"></a>
 </body>
 </html>

@@ -25,7 +25,17 @@ function logResponse( input ) {
 }
 
 function cue(event) {
-  event.target.classList.add("active");
+  var track = event.target.parentNode.track;
+
+  // TODO: should handle the MIDI sends here
+  if (track.cuePoint) {
+    // jump to cuePoint
+    track.jumpToCuePoint();
+  } else {
+    track.setCuePointAtCurrentTime();
+    event.target.classList.add("active");
+  }
+  event.preventDefault();
 }
 
 

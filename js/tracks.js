@@ -340,6 +340,8 @@ Track.prototype.updatePlatter = function() {
 	if (!this.isPlaying) {
 		if (this.stopTime) {	// still in spin-down; 
 			if (now > (this.stopTime + 1) ) {	// done spinning down.
+//				console.log( "this.lastBufferTime: " + this.lastBufferTime + " this.stopTime: " + this.stopTime );
+				this.lastBufferTime = this.lastBufferTime + 0.5;
 				this.stopTime = 0;
 				return false;
 			} else {
@@ -349,7 +351,7 @@ Track.prototype.updatePlatter = function() {
 				bufferTime = bufferTime / 2;
 				bufferTime = 0.5 - bufferTime + this.lastBufferTime;
 				keepAnimating = true;
-//				console.log( "now:" + now + " stopTime:" + this.stopTime + " bufferTime:" + bufferTime );
+//				console.log( "now:" + now + " stopTime:" + this.stopTime + " bufferTime:" + bufferTime + " this.lastBufferTime:" + this.lastBufferTime );
 			}
 		} else
 			bufferTime = this.lastBufferTime;

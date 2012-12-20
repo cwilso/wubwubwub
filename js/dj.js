@@ -58,6 +58,6 @@ window.addEventListener('load', function() {
   request.send();
 
   // Start initializing MIDI
-  navigator.getMIDIAccess( onMIDIInit, onMIDIFail );
+  navigator.requestMIDIAccess( onMIDIInit, onMIDIFail );
   
 });

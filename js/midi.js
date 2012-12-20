@@ -7,21 +7,19 @@ var selectMIDIOut = null;
 
 function turnOffLeftPlayButton() {
   if (midiOut)
-    midiOut.sendMessage( 0x80, 0x3b, 0x01 );
+    midiOut.send( [ 0x80, 0x3b, 0x01 ] );
 }
 
 function turnOffRightPlayButton() {
   if (midiOut)
-    midiOut.sendMessage( 0x80, 0x42, 0x01 );
+    midiOut.send( [0x80, 0x42, 0x01] );
 }
 
-function midiMessageReceived(msgs) {
-  for (var i=0; i<msgs.length; i++ ) {
-    var cmd = msgs[i].data[0] >> 4;
-    // var channel = msgs[i].data[0] & 0xf;
-
-    var noteNumber = msgs[i].data[1];
-    var velocity = msgs[i].data[2];
+function midiMessageReceived( e ) {
+    var cmd = e.data[0] >> 4;
+    // var channel = e.data[0] & 0xf;
+    var noteNumber = e.data[1];
+    var velocity = e.data[2];
 
     if ( cmd==8 || ((cmd==9)&&(velocity==0)) ) { // with MIDI, note on with velocity zero is the same as note off
       // note off
@@ -41,13 +39,13 @@ function midiMessageReceived(msgs) {
             leftTrack.jumpToCuePoint();
             // light up the play button
             if (midiOut)
-              midiOut.sendMessage( (leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01);
+              midiOut.send( [(leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
             leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
           } else {
             leftTrack.setCuePointAtCurrentTime();
             // light up the Deck A cue button
             if (midiOut)
-              midiOut.sendMessage( 0x90, 0x33, 0x01 );
+              midiOut.send( [0x90, 0x33, 0x01] );
           }
           break;
         case 0x3b:  // Deck A play/pause
@@ -55,7 +53,7 @@ function midiMessageReceived(msgs) {
           leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
           leftTrack.togglePlayback();
           if (midiOut)
-            midiOut.sendMessage( (leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01);
+            midiOut.send( [(leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
           break;
         case 0x40:  // Deck A sync
           break;
@@ -63,14 +61,14 @@ function midiMessageReceived(msgs) {
           if (filterTrack == leftTrack) {
             filterTrack = null;
             if (midiOut)
-              midiOut.sendMessage( 0x80, 0x65, 0x01 );
+              midiOut.send( [0x80, 0x65, 0x01] );
           } else {
             filterTrack = leftTrack;
             if (midiOut)
-              midiOut.sendMessage( 0x90, 0x65, 0x01 );
+              midiOut.send( [0x90, 0x65, 0x01] );
           }
           if (midiOut)
-            midiOut.sendMessage( 0x80, 0x66, 0x01 );
+            midiOut.send( [0x80, 0x66, 0x01] );
           break;
         case 0x4b:  // Deck A load
           break;
@@ -81,7 +79,7 @@ function midiMessageReceived(msgs) {
           leftTrack.clearCuePoint();
           // un-light up the Deck A cue button
           if (midiOut)
-            midiOut.sendMessage( 0x80, 0x33, 0x01 );
+            midiOut.send( [0x80, 0x33, 0x01] );
           break;
 
         // Deck B buttons
@@ -90,13 +88,13 @@ function midiMessageReceived(msgs) {
             // jump to cuePoint
             rightTrack.jumpToCuePoint();
             if (midiOut)
-              midiOut.sendMessage( (rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01);
+              midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01]);
             rightTrack.onPlaybackEnd = turnOffRightPlayButton;
           } else {
             rightTrack.setCuePointAtCurrentTime();
             // light up the Deck B cue button
             if (midiOut)
-              midiOut.sendMessage( 0x90, 0x3c, 0x01 );
+              midiOut.send( [0x90, 0x3c, 0x01] );
             rightTrack.cueButton.classList.add("active");
           }
           break;
@@ -105,7 +103,7 @@ function midiMessageReceived(msgs) {
           rightTrack.onPlaybackEnd = turnOffRightPlayButton;
           rightTrack.togglePlayback();
           if (midiOut)
-            midiOut.sendMessage( (rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01);
+            midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01]);
           break;
         case 0x47:  // Deck B sync
           break;
@@ -113,14 +111,14 @@ function midiMessageReceived(msgs) {
           if (filterTrack == rightTrack) {
             filterTrack = null;
             if (midiOut)
-              midiOut.sendMessage( 0x80, 0x66, 0x01 );
+              midiOut.send( [0x80, 0x66, 0x01] );
           } else {
             filterTrack = rightTrack;
             if (midiOut)
-              midiOut.sendMessage( 0x90, 0x66, 0x01 );
+              midiOut.send( [0x90, 0x66, 0x01] );
           }
           if (midiOut)
-            midiOut.sendMessage( 0x80, 0x65, 0x01 );
+            midiOut.send( [0x80, 0x65, 0x01] );
           break;
         case 0x34:  // Deck B load
           break;
@@ -131,7 +129,7 @@ function midiMessageReceived(msgs) {
           rightTrack.clearCuePoint();
           // un-light up the Deck B cue button
           if (midiOut)
-            midiOut.sendMessage( 0x80, 0x3c, 0x01 );
+            midiOut.send( [0x80, 0x3c, 0x01] );
           break;
       }
     } else if (cmd == 11) { // Continuous Controller message
@@ -206,7 +204,6 @@ function midiMessageReceived(msgs) {
 
       }
     }
-  }
 }
 
 function changeMIDIPort() {
@@ -277,14 +274,14 @@ function onMIDIInit( midi ) {
 
   // clear all the LEDs
   if (midiOut) {
-    midiOut.sendMessage( 0x80,0x3b,0x01 ); // Deck A play/pause
-    midiOut.sendMessage( 0x80,0x33,0x01 ); // Deck A cue
-    midiOut.sendMessage( 0x80,0x40,0x01 ); // Deck A sync
-    midiOut.sendMessage( 0x80,0x65,0x01 ); // Deck A PFL
-    midiOut.sendMessage( 0x80,0x42,0x01 ); // Deck B play/pause
-    midiOut.sendMessage( 0x80,0x3c,0x01 ); // Deck B cue
-    midiOut.sendMessage( 0x80,0x47,0x01 ); // Deck B sync
-    midiOut.sendMessage( 0x80,0x66,0x01 ); // Deck B PFL
+    midiOut.send( [0x80,0x3b,0x01] ); // Deck A play/pause
+    midiOut.send( [0x80,0x33,0x01] ); // Deck A cue
+    midiOut.send( [0x80,0x40,0x01] ); // Deck A sync
+    midiOut.send( [0x80,0x65,0x01] ); // Deck A PFL
+    midiOut.send( [0x80,0x42,0x01] ); // Deck B play/pause
+    midiOut.send( [0x80,0x3c,0x01] ); // Deck B cue
+    midiOut.send( [0x80,0x47,0x01] ); // Deck B sync
+    midiOut.send( [0x80,0x66,0x01] ); // Deck B PFL
   }
 
 }

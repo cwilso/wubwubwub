@@ -91,3 +91,4 @@ input[type="range"]::-webkit-slider-thumb {
     border-radius: 40px;
     background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#ebf1f6), color-stop(50%,#abd3ee), color-stop(51%,#89c3eb), color-stop(100%,#d5ebfb));
 }
+#MIDIPlugin { visibility: hidden; }

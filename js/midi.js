@@ -236,7 +236,7 @@ function onMIDIInit( midi ) {
   selectMIDIIn=document.getElementById("midiIn");
   selectMIDIOut=document.getElementById("midiOut");
 
-  var list=midi.enumerateInputs();
+  var list=midi.getInputs();
 
   // clear the MIDI input select
   selectMIDIIn.options.length = 0;
@@ -258,7 +258,7 @@ function onMIDIInit( midi ) {
   // clear the MIDI output select
   selectMIDIOut.options.length = 0;
   preferredIndex = 0;
-  list=midi.enumerateOutputs();
+  list=midi.getOutputs();
 
   for (var i=0; i<list.length; i++)
     if (list[i].name.toString().indexOf("DJ") != -1)

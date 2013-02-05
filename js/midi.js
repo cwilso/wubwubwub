@@ -207,27 +207,27 @@ function midiMessageReceived( e ) {
 }
 
 function changeMIDIPort() {
-  var list=midiAccess.enumerateInputs();
+  var list=midiAccess.getInputs();
   midiIn = midi.getInput( list[ selectMIDI.selectedIndex ] );
   midiIn.onmessage = midiMessageReceived;
 }
 
 function changeMIDIIn( ev ) {
-  var list=midi.enumerateInputs();
+  var list=midiAccess.getInputs();
   var selectedIndex = ev.target.selectedIndex;
 
   if (list.length >= selectedIndex) {
-    midiIn = midi.getInput( list[selectedIndex] );
+    midiIn = midiAccess.getInput( list[selectedIndex] );
     midiIn.onmessage = midiMessageReceived;
   }
 }
 
 function changeMIDIOut( ev ) {
-  var list=midi.enumerateOutputs();
+  var list=midiAccess.getOutputs();
   var selectedIndex = ev.target.selectedIndex;
 
   if (list.length >= selectedIndex)
-    midiOut = midi.getOutput( list[selectedIndex] );
+    midiOut = midiAccess.getOutput( list[selectedIndex] );
 }
 
 function onMIDIInit( midi ) {
@@ -236,7 +236,7 @@ function onMIDIInit( midi ) {
   selectMIDIIn=document.getElementById("midiIn");
   selectMIDIOut=document.getElementById("midiOut");
 
-  var list=midi.getInputs();
+  var list=midiAccess.getInputs();
 
   // clear the MIDI input select
   selectMIDIIn.options.length = 0;
@@ -249,7 +249,7 @@ function onMIDIInit( midi ) {
     for (var i=0; i<list.length; i++)
       selectMIDIIn.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
 
-    midiIn = midi.getInput( list[preferredIndex] );
+    midiIn = midiAccess.getInput( list[preferredIndex] );
     midiIn.onmessage = midiMessageReceived;
 
     selectMIDIIn.onchange = changeMIDIIn;
@@ -258,7 +258,7 @@ function onMIDIInit( midi ) {
   // clear the MIDI output select
   selectMIDIOut.options.length = 0;
   preferredIndex = 0;
-  list=midi.getOutputs();
+  list=midiAccess.getOutputs();
 
   for (var i=0; i<list.length; i++)
     if (list[i].name.toString().indexOf("DJ") != -1)
@@ -268,7 +268,7 @@ function onMIDIInit( midi ) {
     for (var i=0; i<list.length; i++)
       selectMIDIOut.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
 
-    midiOut = midi.getOutput( list[preferredIndex] );
+    midiOut = midiAccess.getOutput( list[preferredIndex] );
     selectMIDIOut.onchange = changeMIDIOut;
   }
 

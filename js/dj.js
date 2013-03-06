@@ -38,6 +38,12 @@ function cue(event) {
   event.preventDefault();
 }
 
+function handleFileDrop(evt) {
+  evt.stopPropagation();
+  evt.preventDefault();
+
+  console.log( "Dropped: " + evt.dataTransfer.files[0].name );
+}
 
 //init: create plugin
 window.addEventListener('load', function() {
@@ -58,6 +64,6 @@ window.addEventListener('load', function() {
   request.send();
 
   // Start initializing MIDI
-  navigator.requestMIDIAccess( onMIDIInit, onMIDIFail );
-  
+  if (navigator.requestMIDIAccess)
+    navigator.requestMIDIAccess( onMIDIInit, onMIDIFail );
 });

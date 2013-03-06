@@ -104,11 +104,20 @@ function Track( url ) {
 
 	document.getElementById( "trackContainer" ).appendChild(e);
 	this.trackElement = e;
-	e.ondragenter = function () { 
+
+  	e.addEventListener('dragover', function (evt) {
+	    evt.stopPropagation();
+	    evt.preventDefault();
+	    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  	}, false);
+
+	e.addEventListener('dragenter', function () { 
 		e.classList.add("droptarget"); 
-		return false; };
-	e.ondragleave = function () { e.classList.remove("droptarget"); return false; };
-	e.ondrop = function (ev) {
+		return false; 
+	}, false );
+	e.addEventListener('dragleave', function () { e.classList.remove("droptarget"); return false; }, false );
+
+  	e.addEventListener('drop', function (ev) {
   		ev.preventDefault();
 		e.classList.remove("droptarget");
   		e.firstChild.innerText = ev.dataTransfer.files[0].name;
@@ -128,7 +137,7 @@ function Track( url ) {
 		};
 	  	reader.readAsArrayBuffer(ev.dataTransfer.files[0]);
 	  	return false;
-	};	
+	}, false );	
 
 	this.gain = 1.0;
 	this.gainSlider = gainSlider;

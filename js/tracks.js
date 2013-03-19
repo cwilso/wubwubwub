@@ -115,7 +115,10 @@ function Track( url ) {
 		e.classList.add("droptarget"); 
 		return false; 
 	}, false );
-	e.addEventListener('dragleave', function () { e.classList.remove("droptarget"); return false; }, false );
+	e.addEventListener('dragleave', function () { 
+		e.classList.remove("droptarget"); 
+		return false; 
+	}, false );
 
   	e.addEventListener('drop', function (ev) {
   		ev.preventDefault();
@@ -295,14 +298,17 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
 	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
 
-    sourceNode.noteOn( now );
     this.sourceNode = sourceNode;
     this.isPlaying = true;
     this.lastTimeStamp = now + 0.5;		// the 0.5 is to make up for the initial 1s "spin-up" ramp.
-    this.lastBufferTime = 0.0;
-    this.startTime = now;
+//    this.lastBufferTime = 0.0;
+//    this.startTime = now;
+    this.offset = this.lastBufferTime;
+    this.restartTime = now;
     this.stopTime = 0.0;
     this.lastPBR = this.currentPlaybackRate;
+
+    sourceNode.start( now, this.lastBufferTime );
 
     updatePlatters( 0 );
     return true;
@@ -326,7 +332,8 @@ Track.prototype.togglePlayback = function() {
 
     this.isPlaying = true;
     this.lastTimeStamp = now;
-    this.startTime = now-1;	// skips our "spin-up" animation
+    this.restartTime = now-1;	// skips our "spin-up" animation
+    this.offset = this.lastBufferTime;
     this.stopTime = 0;
     this.lastPBR = this.currentPlaybackRate;
 
@@ -364,11 +371,12 @@ Track.prototype.updatePlatter = function() {
 			}
 		} else
 			bufferTime = this.lastBufferTime;
-	} else if ((this.startTime + 1) > now) {	// we're still in "spin-up"
+	} else if ((this.restartTime + 1) > now) {	// we're still in "spin-up"
 		// bufferTime = 1/2 acceleration * t^2;  // acceleration = 1
-		bufferTime = now-this.startTime;
+		bufferTime = now-this.restartTime;
 		bufferTime = bufferTime * bufferTime;
 		bufferTime = bufferTime / 2;
+		bufferTime += this.offset;
     } else {
     	if ( this.sourceNode && this.sourceNode.playbackState == this.sourceNode.FINISHED_STATE ) {
     		// source node is done playing - shut everything down!

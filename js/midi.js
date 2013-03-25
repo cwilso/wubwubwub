@@ -4,6 +4,7 @@ var midiOut = null;
 var filterTrack = null;
 var selectMIDIIn = null;
 var selectMIDIOut = null;
+var isMixTrack = false;
 
 function turnOffLeftPlayButton() {
   if (midiOut)
@@ -27,10 +28,10 @@ function midiMessageReceived( e ) {
     } else if (cmd == 9) {  // Note on
       switch (noteNumber) {
         // General buttons
-        case 0x59:  // Back
-          break;
-        case 0x5a:  // Enter
-          break;
+//        case 0x59:  // Back
+//          break;
+//        case 0x5a:  // Enter
+//          break;
 
         // Deck A buttons
         case 0x33:  // Deck A cue
@@ -55,8 +56,8 @@ function midiMessageReceived( e ) {
           if (midiOut)
             midiOut.send( [(leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
           break;
-        case 0x40:  // Deck A sync
-          break;
+//        case 0x40:  // Deck A sync
+//          break;
         case 0x65:  // Deck A PFL
           if (filterTrack == leftTrack) {
             filterTrack = null;
@@ -70,8 +71,8 @@ function midiMessageReceived( e ) {
           if (midiOut)
             midiOut.send( [0x80, 0x66, 0x01] );
           break;
-        case 0x4b:  // Deck A load
-          break;
+//        case 0x4b:  // Deck A load
+//          break;
         case 0x43:  // Deck A pitch bend +
           leftTrack.setCuePointEndAtCurrentTime();
           break;
@@ -105,8 +106,8 @@ function midiMessageReceived( e ) {
           if (midiOut)
             midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01]);
           break;
-        case 0x47:  // Deck B sync
-          break;
+//        case 0x47:  // Deck B sync
+//          break;
         case 0x66:  // Deck B PFL - select deck B for filter
           if (filterTrack == rightTrack) {
             filterTrack = null;
@@ -120,8 +121,8 @@ function midiMessageReceived( e ) {
           if (midiOut)
             midiOut.send( [0x80, 0x65, 0x01] );
           break;
-        case 0x34:  // Deck B load
-          break;
+//        case 0x34:  // Deck B load
+//          break;
         case 0x45:  // Deck B pitch bend +
           rightTrack.setCuePointEndAtCurrentTime();
           break;
@@ -131,6 +132,8 @@ function midiMessageReceived( e ) {
           if (midiOut)
             midiOut.send( [0x80, 0x3c, 0x01] );
           break;
+        default:
+          console.log("MIDI: NoteOn: 0x" + noteNumber.toString(16) + " value=" + velocity );
       }
     } else if (cmd == 11) { // Continuous Controller message
       switch (noteNumber) {
@@ -202,6 +205,9 @@ function midiMessageReceived( e ) {
           }
           break;
 
+        default:
+          console.log("MIDI: CC: 0x" + noteNumber.toString(16) + " value=" + velocity );
+
       }
     }
 }
@@ -242,7 +248,7 @@ function onMIDIInit( midi ) {
   selectMIDIIn.options.length = 0;
 
   for (var i=0; i<list.length; i++)
-    if (list[i].name.toString().indexOf("DJ") != -1)
+    if (list[i].name.toString().indexOf("Numark") != -1)
       preferredIndex = i;
 
   if (list.length) {
@@ -261,7 +267,7 @@ function onMIDIInit( midi ) {
   list=midiAccess.getOutputs();
 
   for (var i=0; i<list.length; i++)
-    if (list[i].name.toString().indexOf("DJ") != -1)
+    if (list[i].name.toString().indexOf("Numark") != -1)
       preferredIndex = i;
 
   if (list.length) {
@@ -270,6 +276,7 @@ function onMIDIInit( midi ) {
 
     midiOut = midiAccess.getOutput( list[preferredIndex] );
     selectMIDIOut.onchange = changeMIDIOut;
+    isMixTrack = (list[preferredIndex].name.indexOf("Mix Track") !=-1);
   }
 
   // clear all the LEDs

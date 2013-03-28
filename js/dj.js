@@ -2,9 +2,9 @@ var dingbuffer = null;
 var revdingbuffer = null;
 
 function playSound(buffer) {
-  var source = audioContext.createBufferSource(); // creates a sound source
+  var source = audioCtx.createBufferSource(); // creates a sound source
   source.buffer = buffer;                    // tell the source which sound to play
-  source.connect(audioContext.destination);       // connect the source to the context's destination (the speakers)
+  source.connect(audioCtx.destination);       // connect the source to the context's destination (the speakers)
   source.noteOn(0);                          // play the source now
 }
 
@@ -43,20 +43,22 @@ function handleFileDrop(evt) {
   evt.preventDefault();
 
   console.log( "Dropped: " + evt.dataTransfer.files[0].name );
-}
+} 
 
 //init: create plugin
 window.addEventListener('load', function() {
-  audioContext = new webkitAudioContext();
+  audioCtx = new webkitAudioContext();
 
-  leftTrack = new Track( "sounds/TheUnderworld.ogg" );
-  rightTrack = new Track( "sounds/RapidArc.ogg" );
+
+
+  leftTrack = new Track( "sounds/TheUnderworld.ogg", true );
+  rightTrack = new Track( "sounds/RapidArc.ogg", false );
 
   var request = new XMLHttpRequest();
   request.open("GET", "sounds/ding.ogg", true);
   request.responseType = "arraybuffer";
   request.onload = function() {
-    audioContext.decodeAudioData( request.response, function(buffer) { 
+    audioCtx.decodeAudioData( request.response, function(buffer) { 
         dingbuffer = buffer;
         revdingbuffer = reverseBuffer(buffer);
     } );

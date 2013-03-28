@@ -1,6 +1,6 @@
-body { background: black; }
+body { background: #222; }
 .track { background: url("../img/bkg.gif") #666; border: 5px solid lime; border-radius: 10px;
-    width: 400px; height: 430px;
+    width: 400px; height: 500px;
     display: inline-block;
     text-align: center;
     position: relative;
@@ -9,12 +9,16 @@ body { background: black; }
     font-family: Arial, sans-serif;
     }
 .name { color: #ddd; font: 18px Arial, sans-serif; margin: 10px 0px 5px;}
-.aligner { width: 860px; margin: 0px auto;}
+#wavedisplay, .aligner { width: 860px; margin: 0px auto;}
+#wavedisplay { height: 80px; background: black; position:relative;}
+#wavedisplay canvas { position:absolute; }
 .loading { border-color: red;}
 .slider { height: 20px; width: 300px;}
-.xfade { display:block; margin: 20px auto; height:20px; width: 600px;}
+.xfade { display:block; margin: 10px auto; height:20px; width: 600px;}
 .droptarget { background: gray;}
-.deck { color: black; display: block; width: 300px; margin: 10px auto;}
+.deck { color: black; display: block; width: 320px; height:320px; margin: 10px auto;}
+.audiobuffer { position: relative; width: 370px; height: 50px; display:inline-block; background: navy;}
+.audiobuffer canvas { position: absolute; left:0px;}
 .disc { background: black; color: white; position: absolute; width: 300px; height: 300px; 
 	border:10px solid white; border-radius: 160px;}
 .platter { width:300px; height: 300px; 
@@ -71,8 +75,8 @@ body { background: black; }
 }
 .powerButton img { width: 15px; height: 15px; }
 
-.license { color: #666; text-align: right }
-.midi { color: #ddd; font: 12pt Arial, sans-serif; margin: 10px 0px;}
+.license { color: #666; float: right }
+.midi { color: #ddd; font: 12pt Arial, sans-serif; margin: 20px 0px;}
 input[type="range"] {
     -webkit-appearance: none;
     background-color: gray;

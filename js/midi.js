@@ -5,6 +5,7 @@ var filterTrack = null;
 var selectMIDIIn = null;
 var selectMIDIOut = null;
 var isMixTrack = false;
+var tickCount = 0;
 
 function turnOffLeftPlayButton() {
   if (midiOut)
@@ -23,6 +24,7 @@ function midiMessageReceived( e ) {
     var velocity = e.data[2];
 
     if ( cmd==8 || ((cmd==9)&&(velocity==0)) ) { // with MIDI, note on with velocity zero is the same as note off
+      // console.log("MIDI: NoteOff: 0x" + noteNumber.toString(16) + " value=" + velocity );
       // note off
       //noteOff(b);
     } else if (cmd == 9) {  // Note on
@@ -34,21 +36,34 @@ function midiMessageReceived( e ) {
 //          break;
 
         // Deck A buttons
-        case 0x33:  // Deck A cue
-          if (leftTrack.cuePoint) {
+        case 0x33:  // Deck A main cue
+        case 0x5a:  // Deck A cue 1-3
+        case 0x5b:
+        case 0x5c:
+          var i = noteNumber - 0x59;
+          if (i<0)
+            i=0;
+
+          if (leftTrack.cues[i]) {
             // jump to cuePoint
-            leftTrack.jumpToCuePoint();
+            leftTrack.jumpToCuePoint( i );
             // light up the play button
             if (midiOut)
               midiOut.send( [(leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
             leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
-          } else {
-            leftTrack.setCuePointAtCurrentTime();
-            // light up the Deck A cue button
+          } else {  // cue point wasn't set - set it.
+            leftTrack.setCuePointAtCurrentTime(i);
+            // light up the appropriate cue button
             if (midiOut)
-              midiOut.send( [0x90, 0x33, 0x01] );
+              midiOut.send( [0x90, noteNumber, 0x01] );
           }
           break;
+
+        case 0x59:   // Deck A cue delete
+          leftTrack.cueDeleteMode = !leftTrack.cueDeleteMode;
+          midiOut.send( [(leftTrack.cueDeleteMode) ? 0x90 : 0x80,0x59,0x01]);
+          break; 
+
         case 0x3b:  // Deck A play/pause
           leftTrack.cuePointIsActive = false;
           leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
@@ -74,29 +89,31 @@ function midiMessageReceived( e ) {
 //        case 0x4b:  // Deck A load
 //          break;
         case 0x43:  // Deck A pitch bend +
-          leftTrack.setCuePointEndAtCurrentTime();
           break;
         case 0x44:  // Deck A pitch bend -
-          leftTrack.clearCuePoint();
-          // un-light up the Deck A cue button
-          if (midiOut)
-            midiOut.send( [0x80, 0x33, 0x01] );
           break;
 
         // Deck B buttons
         case 0x3c:  // Deck B cue
-          if (rightTrack.cuePoint) {
+        case 0x5e:  // Deck B cue 1-3
+        case 0x5f:
+        case 0x60:
+          var i = noteNumber - 0x5d;
+          if (i<0)
+            i=0;
+
+          if (rightTrack.cues[i]) {
             // jump to cuePoint
-            rightTrack.jumpToCuePoint();
+            rightTrack.jumpToCuePoint( i );
+            // light up the play button
             if (midiOut)
-              midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x42,0x01]);
+              midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
             rightTrack.onPlaybackEnd = turnOffRightPlayButton;
-          } else {
-            rightTrack.setCuePointAtCurrentTime();
-            // light up the Deck B cue button
+          } else {  // cue point wasn't set - set it.
+            rightTrack.setCuePointAtCurrentTime(i);
+            // light up the appropriate cue button
             if (midiOut)
-              midiOut.send( [0x90, 0x3c, 0x01] );
-            rightTrack.cueButton.classList.add("active");
+              midiOut.send( [0x90, noteNumber, 0x01] );
           }
           break;
         case 0x42:  // Deck B play/pause
@@ -150,6 +167,8 @@ function midiMessageReceived( e ) {
           break;
 
         case 0x0a: // Crossfader
+          if (isMixTrack)
+            velocity = 127 - velocity;  // Mixtrack is flipped
           var val = velocity/127.0;
           crossfade(val);
           document.getElementById("xfader").value = val;
@@ -186,6 +205,14 @@ function midiMessageReceived( e ) {
           break;
 
         case 0x19: // Deck A wheel (shuttle)
+          if (isMixTrack) { // skips 3 of every four ticks
+            if (tickCount<4)
+              tickCount++;
+            else
+              tickCount = 0;
+          }
+          if (!tickCount) {
+  
           if (velocity>63) {
             // wheel -1
             leftTrack.skip(-1);
@@ -193,9 +220,18 @@ function midiMessageReceived( e ) {
             // wheel +1
             leftTrack.skip(1);
           }
+        }
           break;
 
         case 0x18: // Deck B wheel (shuttle)
+          if (isMixTrack) { // skips 3 of every four ticks
+            if (tickCount<4)
+              tickCount++;
+            else
+              tickCount = 0;
+          }
+          if (!tickCount) {
+  
           if (velocity>63) {
             // wheel -1
             rightTrack.skip(-1);
@@ -203,6 +239,7 @@ function midiMessageReceived( e ) {
             // wheel +1
             rightTrack.skip(1);
           }
+        }
           break;
 
         default:

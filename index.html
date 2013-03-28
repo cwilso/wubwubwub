@@ -3,15 +3,19 @@
 <head>
 <title>wubwubwub - Web Audio DJ</title>
 <link rel="stylesheet" href="style/main.css" type="text/css">
-<link href='http://fonts.googleapis.com/css?family=Chango' rel='stylesheet' type='text/css'>
+<alink href='http://fonts.googleapis.com/css?family=Chango' rel='stylesheet' type='text/css'>
 </head>
 <body>
-<script src='http://cwilso.github.com/WebMIDIAPIShim/WebMIDIAPI.js'></script>
+<ascript src='http://cwilso.github.com/WebMIDIAPIShim/WebMIDIAPI.js'></ascript>
+<script src='js/WebMIDIAPI.js'></script>
+<script src="js/cue.js"></script>
 <script src="js/dj.js"></script>
 <script src="js/midi.js"></script>
 <script src="js/tracks.js"></script>
 <script src="js/visualizer.js"></script>
+<script src="js/audiodisplay.js"></script>
 <div class="aligner">
+	<div id="wavedisplay"></div>
 	<div id="trackContainer">
 	</div>
 	<input id="xfader" class="xfade" type="range" min="0.0" max="1.0" step="0.01" value="0.5" oninput="crossfade(event.target.value)">
@@ -22,16 +26,14 @@
 			<select id=midiOut onchange='changeMidiOut();'>
 				<option value="">Not connected</option>
 			</select>
+		<i class="license">music tracks from <a href="http://www.freesfx.co.uk">http://www.freesfx.co.uk</a>.</i>
 	</div>
 </div>
 
-
-<div class="license"><i>music tracks from <a href="http://www.freesfx.co.uk">http://www.freesfx.co.uk</a>.</i></div>
 	<a href="https://github.com/cwilso/wubwubwub" class="header" style="position: absolute; z-index:2; top: 0; right: 0; border: 0;"><img src="img/forkme.png" alt="Fork me on GitHub"></a>
-<div id="MIDIPlugin"> </div>
 
 <div style="visibility:hidden; width: 1px; height: 1px" id="MIDIPlugin"></div>
-
+<!--
 <script type="text/javascript">
 
   var _gaq = _gaq || [];
@@ -45,5 +47,6 @@
   })();
 
 </script>
+-->
 </body>
 </html>

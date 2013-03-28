@@ -1,4 +1,4 @@
-var audioContext = new webkitAudioContext();
+var audioCtx = null;
 
 var leftTrack=null;
 var rightTrack=null;
@@ -10,11 +10,12 @@ var FADE=0.01;
 //
 // This object does not currently handle running off the ends of the buffer
 // (forward or backward) very gracefully.  //TODO.
-function Track( url ) {
+function Track( url, left ) {
 	var thisTrack = this;
 	var e = document.createElement( "div" );
 	e.track = thisTrack;
 	e.className = "track loading";
+	thisTrack.isLeftTrack = left;
 
 	// It is important that this element be the first child!
 	// when we load a new file, it changes child[0].
@@ -25,6 +26,7 @@ function Track( url ) {
 	if (dot != -1)
 		name = name.slice( 0, dot );
 	nameElement.appendChild( document.createTextNode(name) );
+	this.nameElement = nameElement;
 	e.appendChild( nameElement );
 
 	var cueButton = document.createElement( "div" );
@@ -48,6 +50,50 @@ function Track( url ) {
 		}
 	};
 	e.appendChild( powerButton );
+
+	var bufferdrawer = document.createElement("div");
+	bufferdrawer.className = "audiobuffer";
+	bufferdrawer.onclick = function ( ev ) {
+		console.log( "clicked: " + ev.offsetX + " " + (ev.offsetX / 370.0 * this.parentNode.track.buffer.duration) )
+		this.parentNode.track.jumpToPoint(ev.offsetX / 370.0 * this.parentNode.track.buffer.duration);
+	}
+
+	var canvas = document.createElement("canvas");
+	canvas.width = "370";
+	canvas.height = "50";
+	this.bufferCanvas = canvas;
+	bufferdrawer.appendChild(canvas);
+
+	canvas = document.createElement("canvas");
+	canvas.width = "370";
+	canvas.height = "50";
+	canvas.style.zIndex = "100";
+	canvas.style.opacity = "0.33";
+	this.positionCanvas = canvas;
+	bufferdrawer.appendChild(canvas);
+
+	canvas = document.createElement("canvas");
+	canvas.width = "370";
+	canvas.height = "50";
+	canvas.style.zIndex = "101";
+	this.cueCanvas = canvas;
+	bufferdrawer.appendChild(canvas);
+
+	e.appendChild( bufferdrawer );
+
+	var deck = document.createElement( "div" );
+	deck.className = "deck";
+	var disc = document.createElement( "div" );
+	disc.className = "disc";
+	var platter = document.createElement( "div" );
+	platter.className = "platter";
+	platter.appendChild( document.createTextNode("wubwubwub") );
+	this.platter = platter;
+	this.platter.style.webkitTransform = "rotate(0deg)";
+
+	disc.appendChild( platter );
+	deck.appendChild( disc );
+	e.appendChild( deck );
 
 	e.appendChild( document.createTextNode("rate") );
 
@@ -88,20 +134,6 @@ function Track( url ) {
 	e.appendChild( gainText );
 	this.gainText = gainText;
 
-	var deck = document.createElement( "div" );
-	deck.className = "deck";
-	var disc = document.createElement( "div" );
-	disc.className = "disc";
-	var platter = document.createElement( "div" );
-	platter.className = "platter";
-	platter.appendChild( document.createTextNode("wubwubwub") );
-	this.platter = platter;
-	this.platter.style.webkitTransform = "rotate(0deg)";
-
-	disc.appendChild( platter );
-	deck.appendChild( disc );
-	e.appendChild( deck );
-
 	document.getElementById( "trackContainer" ).appendChild(e);
 	this.trackElement = e;
 
@@ -128,10 +160,30 @@ function Track( url ) {
 
 	  	var reader = new FileReader();
 	  	reader.onload = function (event) {
-	  		audioContext.decodeAudioData( event.target.result, function(buffer) {
+	  		audioCtx.decodeAudioData( event.target.result, function(buffer) {
+				if (thisTrack.isPlaying)
+					thisTrack.togglePlayback();
+				thisTrack.lastBufferTime = 0.0;
+
 		    	thisTrack.buffer = buffer;
 		    	thisTrack.revBuffer = reverseBuffer( buffer );
 		    	thisTrack.trackElement.classList.remove( "loading" );
+
+				drawBuffer( thisTrack.bufferCanvas.width, thisTrack.bufferCanvas.height, 
+					thisTrack.bufferCanvas.getContext('2d'), buffer ); 
+
+				thisTrack.nameElement.innerText += " (" + buffer.duration.toFixed(1) + " sec)";
+				for (var i=0; i<4; i++)
+					thisTrack.cues[i] = null;
+				// TODO: need to clear MIDI cue lights
+
+				var multicanvas = thisTrack.multicanvas;
+				thisTrack.div64data = div64Buffer( audioCtx, buffer );
+				var view = Math.floor(buffer.sampleRate/64);
+				drawWindowedBuffer( multicanvas.width, multicanvas.height, 
+					multicanvas.getContext('2d'), thisTrack.div64data, -view, view, 
+					thisTrack.isLeftTrack ? "blue" : "red", thisTrack.isLeftTrack ); 
+
 	  		}, function(){alert("error loading!");} ); 
 
 	  	};
@@ -149,19 +201,25 @@ function Track( url ) {
     this.lastBufferTime = 0.0;
 	this.isPlaying = false;
 	this.loadNewTrack( url );
-	this.xfadeGain = audioContext.createGainNode();
+	this.xfadeGain = audioCtx.createGainNode();
 	this.xfadeGain.gain.value = 0.5;
-	this.xfadeGain.connect(audioContext.destination);
-	this.filter = audioContext.createBiquadFilter();
+	this.xfadeGain.connect(audioCtx.destination);
+	this.filter = audioCtx.createBiquadFilter();
 	this.filter.frequency.value = 20000.0;
 	this.filter.type = this.filter.LOWPASS;
 	this.filter.connect( this.xfadeGain );
-	this.cuePoint = 0.0;
+	this.cues = [ null, null, null, null ];
 	this.cueButton = cueButton;
+	this.cueDeleteMode = false;
+
+	this.multicanvas = document.createElement("canvas");
+  	this.multicanvas.width = "860";
+  	this.multicanvas.height = "80";
+  	document.getElementById("wavedisplay").appendChild(this.multicanvas);
 }
 
 function reverseBuffer( buffer ) {
-	var newBuffer = audioContext.createBuffer( buffer.numberOfChannels, buffer.length, buffer.sampleRate );
+	var newBuffer = audioCtx.createBuffer( buffer.numberOfChannels, buffer.length, buffer.sampleRate );
 	if ( newBuffer ) {
 		var length = buffer.length;
 		for ( var channel=0; channel<buffer.numberOfChannels; channel++) {
@@ -186,49 +244,80 @@ Track.prototype.loadNewTrack = function( url ) {
 	request.open("GET", url, true);
 	request.responseType = "arraybuffer";
 	request.onload = function() {
-	  audioContext.decodeAudioData( request.response, function(buffer) { 
+	  audioCtx.decodeAudioData( request.response, function(buffer) { 
 	    	track.buffer = buffer;
 	    	track.revBuffer = reverseBuffer( buffer );
 	    	track.trackElement.classList.remove( "loading" );
+
+			drawBuffer( track.bufferCanvas.width, track.bufferCanvas.height, 
+				track.bufferCanvas.getContext('2d'), buffer ); 
+
+			track.nameElement.innerText += " (" + buffer.duration.toFixed(1) + " sec)";
+
+			var multicanvas = track.multicanvas;
+			track.div64data = div64Buffer( audioCtx, buffer );
+			var view = Math.floor(buffer.sampleRate/64);
+			drawWindowedBuffer( multicanvas.width, multicanvas.height, 
+				multicanvas.getContext('2d'), track.div64data, -view, view, 
+				track.isLeftTrack ? "blue" : "red", track.isLeftTrack ); 
+
+
+
 		} );
 	}
 	request.send();
 }
 
-Track.prototype.setCuePointAtCurrentTime = function() {
+Track.prototype.setCuePointAtCurrentTime = function(index) {
 	// save the current time
-	this.updatePlatter();
-	this.cuePoint = this.lastBufferTime;
-	this.cueButton.classList.add("active");
+	this.updatePlatter( false );
+	this.cues[index] = new Cue(this.lastBufferTime);
+	if (index==0)
+		this.cueButton.classList.add("active");
+	this.updatePlatter( true );  // Make sure to draw the new one.
+	return this.cues[index];
 }
 
+/*
 Track.prototype.setCuePointEndAtCurrentTime = function() {
 	// save the current time
 	this.updatePlatter();
 	this.cuePointEnd = this.lastBufferTime;
 //	this.cueButton.classList.add("active");
 }
+*/
 
-Track.prototype.clearCuePoint = function() {
-	this.cuePoint = 0.0;
-	this.cueButton.classList.remove("active");
+Track.prototype.clearCuePoint = function( index ) {
+	this.cues[index] = null;
+	if (index==0)
+		this.cueButton.classList.remove("active");
 }
 
-Track.prototype.jumpToCuePoint = function() {
+Track.prototype.jumpToCuePoint = function( index ) {
 	if (this.isPlaying)
 		this.togglePlayback();
-	this.cuePointIsActive = true;
-	this.lastBufferTime = this.cuePoint;
+//	this.cuePointIsActive = true;
+	this.lastBufferTime = this.cues[index].time;
 	this.togglePlayback();
+}
+
+Track.prototype.jumpToPoint = function( time ) {
+	var wasPlaying = this.isPlaying;
+	if (wasPlaying)
+		this.togglePlayback();
+	this.lastBufferTime = time;
+	this.updatePlatter( true );
+	if (wasPlaying)
+		this.togglePlayback();
 }
 
 // play a short snippet of sound
 Track.prototype.playSnippet = function() {
-	var now = audioContext.currentTime;
+	var now = audioCtx.currentTime;
 	var snippetLength = 11.0/360.0;
 	var then = now + snippetLength;	// one tick
-    var sourceNode = audioContext.createBufferSource();
-	var gainNode = audioContext.createGainNode();
+    var sourceNode = audioCtx.createBufferSource();
+	var gainNode = audioCtx.createGainNode();
 
     sourceNode.loop = false;
 	gainNode.connect( this.filter );
@@ -260,15 +349,15 @@ Track.prototype.skip = function( ticks ) {
 	if ( restart )
 		this.togglePlayback();
 	  else {
-	  	this.updatePlatter();
+	  	this.updatePlatter( true );
 	  	this.playSnippet();
 	  }
 }
 
 Track.prototype.togglePlaybackSpinUpDown = function() {
-    var now = audioContext.currentTime;
+    var now = audioCtx.currentTime;
 
-	this.cuePointIsActive = false;
+//	this.cuePointIsActive = false;
 
     if (this.isPlaying) {
         //stop playing and return
@@ -287,13 +376,13 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
         return false;
     }
 
-    sourceNode = audioContext.createBufferSource();
+    sourceNode = audioCtx.createBufferSource();
     sourceNode.buffer = this.buffer;
     sourceNode.loop = false;
     sourceNode.playbackRate.setValueAtTime( 0.001, now );
     sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 
-	this.gainNode = audioContext.createGainNode();
+	this.gainNode = audioCtx.createGainNode();
 	this.gainNode.connect( this.filter );
 	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
@@ -315,7 +404,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
 }
 
 Track.prototype.togglePlayback = function() {
-    var now = audioContext.currentTime;
+    var now = audioCtx.currentTime;
 
     if (this.isPlaying) {
         //stop playing and return
@@ -348,8 +437,11 @@ Track.prototype.updateTime = function( now ) {
     this.lastTimeStamp = now;
 }
 
-Track.prototype.updatePlatter = function() {
-    var now = audioContext.currentTime;
+var cueColors = ["red", "blue", "green", "yellow"];
+var cueText = ["cue", "1", "2", "3"];
+
+Track.prototype.updatePlatter = function( drawOnScreen ) {
+    var now = audioCtx.currentTime;
     var bufferTime;
     var keepAnimating = this.isPlaying;
 
@@ -389,9 +481,47 @@ Track.prototype.updatePlatter = function() {
 		this.updateTime( now );
 		bufferTime = this.lastBufferTime;
 	}
-	var degrees = ( bufferTime / 60 * 33 * 360) % 360;
-	var text = "rotate(" + degrees + "deg)";
-	this.platter.style.webkitTransform = text;
+
+	if (drawOnScreen) {
+		var degrees = ( bufferTime / 60 * 33 * 360) % 360;
+		var text = "rotate(" + degrees + "deg)";
+		this.platter.style.webkitTransform = text;
+
+		// Now draw the position in the buffer
+		var w = this.positionCanvas.width;
+		var h = this.positionCanvas.height;
+		var ctx = this.positionCanvas.getContext('2d');
+		ctx.clearRect(0,0,w,h);
+		w = w * bufferTime / this.buffer.duration;
+		ctx.fillStyle = "white";
+		ctx.fillRect(0,0,w,h);
+
+		w = this.cueCanvas.width;
+		ctx = this.cueCanvas.getContext('2d');
+		ctx.clearRect(0,0,w,h);
+		for (var i=0; i<4; i++) {
+			var cue = this.cues[i]; 
+			if (cue ) {
+				var x = cue.time / this.buffer.duration * w; 
+				ctx.fillStyle = cueColors[i];
+				ctx.fillRect( x, 0, 1, h );
+				ctx.font = "12px bold Skia, Arial, sans-serif";
+				ctx.fillText( cueText[i], x+2, h/4 );
+			}
+		}
+
+/*
+		var multicanvas = this.multicanvas;
+		var begin = Math.floor( (bufferTime-1) * this.buffer.sampleRate / 64 );
+		var end = begin + Math.floor(this.buffer.sampleRate/32);
+		var end2 = Math.floor((bufferTime+1) * this.buffer.sampleRate/64);
+		console.log("end: " + end + " end2: " +end2);
+		drawWindowedBuffer( multicanvas.width, multicanvas.height, 
+			multicanvas.getContext('2d'), this.div64data, begin, end, 
+			this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
+*/
+	}
+
 	return keepAnimating;	// "keep animating" - may need to check if !isplaying
 }
 
@@ -401,7 +531,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	this.currentPlaybackRate = rate;
     	return;
 	}
-    var now = audioContext.currentTime;
+    var now = audioCtx.currentTime;
 
     if (this.lastTimeStamp > now)
     	return; 	// TODO: for now, we don't deal with changing pbr before the
@@ -461,9 +591,9 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     // we may have been stopped before.  Create the sourceNode,
     // pointing to the correct direction buffer.
 	if (!this.sourceNode) {
-	    var sourceNode = audioContext.createBufferSource();
+	    var sourceNode = audioCtx.createBufferSource();
 	    sourceNode.loop = false;
-		this.gainNode = audioContext.createGainNode();
+		this.gainNode = audioCtx.createGainNode();
 		this.gainNode.connect( this.filter );
 	    sourceNode.connect( this.gainNode );
 	    sourceNode.buffer = (rate>0) ? this.buffer : this.revBuffer;
@@ -472,8 +602,10 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
 //    	this.gainNode.gain.setValueAtTime( 0, now );
 //   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
-    	var duration = ( this.cuePointIsActive && this.cuePointEnd ) ? 
-    		(this.cuePointEnd - startTime) : (sourceNode.buffer.duration - startTime);
+    	var duration = 
+//	    	( this.cuePointIsActive && this.cuePointEnd ) ? 
+//    		(this.cuePointEnd - startTime) : 
+    		(sourceNode.buffer.duration - startTime);
         this.gainNode.gain.value = 0.0;
         this.gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
     	sourceNode.noteGrainOn( now, startTime, duration );
@@ -502,7 +634,7 @@ function updatePlatters( time ) {
 	var keepAnimating = false;
 
 	for (var i=0; i<tracks.children.length; i++)
-		keepAnimating |= tracks.children[i].track.updatePlatter();
+		keepAnimating |= tracks.children[i].track.updatePlatter( true );
 
 	if (keepAnimating)
 		rafID = window.webkitRequestAnimationFrame( updatePlatters );

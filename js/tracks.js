@@ -54,7 +54,6 @@ function Track( url, left ) {
 	var bufferdrawer = document.createElement("div");
 	bufferdrawer.className = "audiobuffer";
 	bufferdrawer.onclick = function ( ev ) {
-		console.log( "clicked: " + ev.offsetX + " " + (ev.offsetX / 370.0 * this.parentNode.track.buffer.duration) )
 		this.parentNode.track.jumpToPoint(ev.offsetX / 370.0 * this.parentNode.track.buffer.duration);
 	}
 
@@ -163,27 +162,9 @@ function Track( url, left ) {
 	  		audioCtx.decodeAudioData( event.target.result, function(buffer) {
 				if (thisTrack.isPlaying)
 					thisTrack.togglePlayback();
-				thisTrack.lastBufferTime = 0.0;
 
-		    	thisTrack.buffer = buffer;
-		    	thisTrack.revBuffer = reverseBuffer( buffer );
-		    	thisTrack.trackElement.classList.remove( "loading" );
-
-				drawBuffer( thisTrack.bufferCanvas.width, thisTrack.bufferCanvas.height, 
-					thisTrack.bufferCanvas.getContext('2d'), buffer ); 
-
-				thisTrack.nameElement.innerText += " (" + buffer.duration.toFixed(1) + " sec)";
-				for (var i=0; i<4; i++)
-					thisTrack.cues[i] = null;
-				// TODO: need to clear MIDI cue lights
-
-				var multicanvas = thisTrack.multicanvas;
-				thisTrack.div64data = div64Buffer( audioCtx, buffer );
-				var view = Math.floor(buffer.sampleRate/64);
-				drawWindowedBuffer( multicanvas.width, multicanvas.height, 
-					multicanvas.getContext('2d'), thisTrack.div64data, -view, view, 
-					thisTrack.isLeftTrack ? "blue" : "red", thisTrack.isLeftTrack ); 
-
+				thisTrack.buffer = buffer;
+				thisTrack.postLoadTasks();
 	  		}, function(){alert("error loading!");} ); 
 
 	  	};
@@ -216,6 +197,7 @@ function Track( url, left ) {
   	this.multicanvas.width = "860";
   	this.multicanvas.height = "80";
   	document.getElementById("wavedisplay").appendChild(this.multicanvas);
+  	this.runningDisplayContext = this.multicanvas.getContext("2d");
 }
 
 function reverseBuffer( buffer ) {
@@ -232,6 +214,24 @@ function reverseBuffer( buffer ) {
 	return newBuffer;
 }
 
+Track.prototype.postLoadTasks = function() {
+	this.revBuffer = reverseBuffer( this.buffer );
+	this.trackElement.classList.remove( "loading" );
+	this.lastBufferTime = 0.0;
+	for (var i=0; i<4; i++)
+		this.cues[i] = null;
+	// TODO: need to clear MIDI cue lights
+
+	drawBuffer( this.bufferCanvas.width, this.bufferCanvas.height, 
+		this.bufferCanvas.getContext('2d'), this.buffer ); 
+	this.nameElement.innerText += " (" + this.buffer.duration.toFixed(1) + " sec)";
+
+	this.waveformDisplayData = createRunningDisplayBuffer( audioCtx, this.buffer );
+	drawRunningDisplay( this.runningDisplayContext, this.waveformDisplayData, this.lastBufferTime, 
+		this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
+
+}
+
 Track.prototype.loadNewTrack = function( url ) {
 	this.buffer = null;
 	this.url = url;
@@ -246,23 +246,7 @@ Track.prototype.loadNewTrack = function( url ) {
 	request.onload = function() {
 	  audioCtx.decodeAudioData( request.response, function(buffer) { 
 	    	track.buffer = buffer;
-	    	track.revBuffer = reverseBuffer( buffer );
-	    	track.trackElement.classList.remove( "loading" );
-
-			drawBuffer( track.bufferCanvas.width, track.bufferCanvas.height, 
-				track.bufferCanvas.getContext('2d'), buffer ); 
-
-			track.nameElement.innerText += " (" + buffer.duration.toFixed(1) + " sec)";
-
-			var multicanvas = track.multicanvas;
-			track.div64data = div64Buffer( audioCtx, buffer );
-			var view = Math.floor(buffer.sampleRate/64);
-			drawWindowedBuffer( multicanvas.width, multicanvas.height, 
-				multicanvas.getContext('2d'), track.div64data, -view, view, 
-				track.isLeftTrack ? "blue" : "red", track.isLeftTrack ); 
-
-
-
+	    	track.postLoadTasks();
 		} );
 	}
 	request.send();
@@ -482,7 +466,7 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 		bufferTime = this.lastBufferTime;
 	}
 
-	if (drawOnScreen) {
+	if (drawOnScreen && this.buffer) {
 		var degrees = ( bufferTime / 60 * 33 * 360) % 360;
 		var text = "rotate(" + degrees + "deg)";
 		this.platter.style.webkitTransform = text;
@@ -510,16 +494,8 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 			}
 		}
 
-/*
-		var multicanvas = this.multicanvas;
-		var begin = Math.floor( (bufferTime-1) * this.buffer.sampleRate / 64 );
-		var end = begin + Math.floor(this.buffer.sampleRate/32);
-		var end2 = Math.floor((bufferTime+1) * this.buffer.sampleRate/64);
-		console.log("end: " + end + " end2: " +end2);
-		drawWindowedBuffer( multicanvas.width, multicanvas.height, 
-			multicanvas.getContext('2d'), this.div64data, begin, end, 
+		drawRunningDisplay( this.runningDisplayContext, this.waveformDisplayData, this.lastBufferTime, 
 			this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
-*/
 	}
 
 	return keepAnimating;	// "keep animating" - may need to check if !isplaying

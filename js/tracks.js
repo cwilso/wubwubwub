@@ -84,11 +84,13 @@ function Track( url, left ) {
 	deck.className = "deck";
 	var disc = document.createElement( "div" );
 	disc.className = "disc";
-	var platter = document.createElement( "div" );
+	var platter = document.createElement( "canvas" );
 	platter.className = "platter";
-	platter.appendChild( document.createTextNode("wubwubwub") );
+	// platter.appendChild( document.createTextNode("wubwubwub") );
 	this.platter = platter;
-	this.platter.style.webkitTransform = "rotate(0deg)";
+	this.platterContext = platter.getContext("2d");
+	this.platterContext.fillStyle = "white";
+	//this.platter.style.webkitTransform = "rotate(0deg)";
 
 	disc.appendChild( platter );
 	deck.appendChild( disc );
@@ -198,6 +200,8 @@ function Track( url, left ) {
   	this.multicanvas.height = "80";
   	document.getElementById("wavedisplay").appendChild(this.multicanvas);
   	this.runningDisplayContext = this.multicanvas.getContext("2d");
+
+//  	this.updatePlatter();
 }
 
 function reverseBuffer( buffer ) {
@@ -258,7 +262,9 @@ Track.prototype.setCuePointAtCurrentTime = function(index) {
 	this.cues[index] = new Cue(this.lastBufferTime);
 	if (index==0)
 		this.cueButton.classList.add("active");
-	this.updatePlatter( true );  // Make sure to draw the new one.
+	
+//	if (!this.isPlaying)
+//		this.updatePlatter( true );  // Make sure to draw the new one.
 	return this.cues[index];
 }
 
@@ -290,9 +296,10 @@ Track.prototype.jumpToPoint = function( time ) {
 	if (wasPlaying)
 		this.togglePlayback();
 	this.lastBufferTime = time;
-	this.updatePlatter( true );
 	if (wasPlaying)
 		this.togglePlayback();
+//	  else
+//  		this.updatePlatter( true );
 }
 
 // play a short snippet of sound
@@ -333,7 +340,7 @@ Track.prototype.skip = function( ticks ) {
 	if ( restart )
 		this.togglePlayback();
 	  else {
-	  	this.updatePlatter( true );
+//	  	this.updatePlatter( true );
 	  	this.playSnippet();
 	  }
 }
@@ -383,7 +390,6 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
 
     sourceNode.start( now, this.lastBufferTime );
 
-    updatePlatters( 0 );
     return true;
 }
 
@@ -410,7 +416,6 @@ Track.prototype.togglePlayback = function() {
     this.stopTime = 0;
     this.lastPBR = this.currentPlaybackRate;
 
-    updatePlatters( 0 );
     this.changePlaybackRate(this.lastPBR);
     return "stop";
 }
@@ -466,36 +471,43 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 		bufferTime = this.lastBufferTime;
 	}
 
-	if (drawOnScreen && this.buffer) {
-		var degrees = ( bufferTime / 60 * 33 * 360) % 360;
-		var text = "rotate(" + degrees + "deg)";
-		this.platter.style.webkitTransform = text;
+	if (drawOnScreen) {
+/*
+		var radians = ( bufferTime / 60 * 33 * 2 * Math.PI) % (2 * Math.PI);
 
-		// Now draw the position in the buffer
-		var w = this.positionCanvas.width;
-		var h = this.positionCanvas.height;
-		var ctx = this.positionCanvas.getContext('2d');
-		ctx.clearRect(0,0,w,h);
-		w = w * bufferTime / this.buffer.duration;
-		ctx.fillStyle = "white";
-		ctx.fillRect(0,0,w,h);
+		this.platterContext.clearRect(0,0,300,300);  // TODO: shouldn't hardcode
+		this.platterContext.rotate( radians );
+		this.platterContext.font = "22px 'Chango', sans-serif";
+		this.platterContext.fillText("wubwubwub", 150, 150);
+*/
+		if (this.buffer) {
+			// Now draw the position in the buffer
+			var w = this.positionCanvas.width;
+			var h = this.positionCanvas.height;
+			var ctx = this.positionCanvas.getContext('2d');
+			ctx.clearRect(0,0,w,h);
+			w = w * bufferTime / this.buffer.duration;
+			ctx.fillStyle = "white";
+			ctx.fillRect(0,0,w,h);
 
-		w = this.cueCanvas.width;
-		ctx = this.cueCanvas.getContext('2d');
-		ctx.clearRect(0,0,w,h);
-		for (var i=0; i<4; i++) {
-			var cue = this.cues[i]; 
-			if (cue ) {
-				var x = cue.time / this.buffer.duration * w; 
-				ctx.fillStyle = cueColors[i];
-				ctx.fillRect( x, 0, 1, h );
-				ctx.font = "12px bold Skia, Arial, sans-serif";
-				ctx.fillText( cueText[i], x+2, h/4 );
+			// TODO: move this out of the main uP call - shouldn't need to change it so often
+			w = this.cueCanvas.width;
+			ctx = this.cueCanvas.getContext('2d');
+			ctx.clearRect(0,0,w,h);
+			for (var i=0; i<4; i++) {
+				var cue = this.cues[i]; 
+				if (cue ) {
+					var x = cue.time / this.buffer.duration * w; 
+					ctx.fillStyle = cueColors[i];
+					ctx.fillRect( x, 0, 1, h );
+					ctx.font = "12px bold Skia, Arial, sans-serif";
+					ctx.fillText( cueText[i], x+2, h/4 );
+				}
 			}
-		}
 
-		drawRunningDisplay( this.runningDisplayContext, this.waveformDisplayData, this.lastBufferTime, 
-			this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
+			drawRunningDisplay( this.runningDisplayContext, this.waveformDisplayData, this.lastBufferTime, 
+				this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
+		}
 	}
 
 	return keepAnimating;	// "keep animating" - may need to check if !isplaying
@@ -597,21 +609,4 @@ Track.prototype.changeGain = function( gain ) {
 	if (this.gainNode)
 		this.gainNode.gain.value = gain;
 	this.gainText.innerText = gain;
-}
-
-var rafID = null;
-var tracks = null;
-
-function updatePlatters( time ) {
-	if (!tracks)
-		tracks = document.getElementById( "trackContainer" );
-
-	var track;
-	var keepAnimating = false;
-
-	for (var i=0; i<tracks.children.length; i++)
-		keepAnimating |= tracks.children[i].track.updatePlatter( true );
-
-	if (keepAnimating)
-		rafID = window.webkitRequestAnimationFrame( updatePlatters );
 }

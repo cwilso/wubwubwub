@@ -21,7 +21,7 @@ body { background: #222; }
 .audiobuffer canvas { position: absolute; left:0px;}
 .disc { background: black; color: white; position: absolute; width: 300px; height: 300px; 
 	border:10px solid white; border-radius: 160px;}
-.platter { width:300px; height: 300px; 
+.aplatter { width:300px; height: 300px; 
 	a-webkit-transform: rotate(45deg); 
 	display: table-cell; vertical-align: middle;
 	font: 22px 'Chango', sans-serif; text-align: center }

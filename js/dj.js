@@ -64,8 +64,20 @@ window.addEventListener('load', function() {
     } );
   }
   request.send();
+  tracks = document.getElementById( "trackContainer" );
+  updatePlatters( 0 );
 
   // Start initializing MIDI
   if (navigator.requestMIDIAccess)
     navigator.requestMIDIAccess( onMIDIInit, onMIDIFail );
 });
+
+var rafID = null;
+var tracks = null;
+
+function updatePlatters( time ) {
+  for (var i=0; i<tracks.children.length; i++)
+    tracks.children[i].track.updatePlatter( true );
+
+  rafID = window.webkitRequestAnimationFrame( updatePlatters );
+}

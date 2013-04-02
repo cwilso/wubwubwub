@@ -3,6 +3,7 @@ var audioCtx = null;
 var leftTrack=null;
 var rightTrack=null;
 var FADE=0.01;
+var REVPERSEC = 33.3 / 60.0;
 
 // The Track object represents an in-memory track.  In order to be able to
 // reverse the playback, it also creates and keeps a reversed version of
@@ -90,7 +91,11 @@ function Track( url, left ) {
 	this.platter = platter;
 	this.platterContext = platter.getContext("2d");
 	this.platterContext.fillStyle = "white";
+	platter.width = 300;
+	platter.height = 300;
 	//this.platter.style.webkitTransform = "rotate(0deg)";
+	this.platterContext.translate(150,150);
+	this.platterContext.font = "22px 'Chango', sans-serif";
 
 	disc.appendChild( platter );
 	deck.appendChild( disc );
@@ -472,14 +477,16 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 	}
 
 	if (drawOnScreen) {
-/*
-		var radians = ( bufferTime / 60 * 33 * 2 * Math.PI) % (2 * Math.PI);
+		var radians = ((bufferTime * REVPERSEC) % 1) * 2 * Math.PI;
+		var context = this.platterContext;
 
-		this.platterContext.clearRect(0,0,300,300);  // TODO: shouldn't hardcode
-		this.platterContext.rotate( radians );
-		this.platterContext.font = "22px 'Chango', sans-serif";
-		this.platterContext.fillText("wubwubwub", 150, 150);
-*/
+		context.clearRect(-150,-150,300,300);  // TODO: shouldn't hardcode
+
+      	context.rotate( radians );
+		context.fillStyle = "white";
+		context.fillText("wubwubwub",-61,8);
+      	context.rotate( -radians );
+
 		if (this.buffer) {
 			// Now draw the position in the buffer
 			var w = this.positionCanvas.width;

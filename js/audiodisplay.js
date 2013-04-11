@@ -23,38 +23,34 @@ function drawBuffer( width, height, context, buffer, color ) {
 var RUNNING_DISPLAY_WIDTH = 860;
 var RUNNING_DISPLAY_HALF_WIDTH = RUNNING_DISPLAY_WIDTH/2;
 var RUNNING_DISPLAY_HEIGHT = 80;
+var RUNNING_DISPLAY_HALF_HEIGHT = RUNNING_DISPLAY_HEIGHT/2;
 var SECONDS_OF_RUNNING_DISPLAY = 2.0;
 
-function drawRunningDisplay( context, data, centerInSeconds, color, top ) {
+function drawRunningDisplay( context, cache, centerInSeconds ) {
     var center = Math.floor( centerInSeconds * RUNNING_DISPLAY_WIDTH / SECONDS_OF_RUNNING_DISPLAY );
 
-    context.clearRect(0,0,RUNNING_DISPLAY_WIDTH,RUNNING_DISPLAY_HEIGHT);
-
-    // draw the center bar
-    context.fillStyle = "gray";
-    context.fillRect(RUNNING_DISPLAY_HALF_WIDTH,0,1,RUNNING_DISPLAY_HEIGHT);
-
-    // set the color for the waveform display
-    context.fillStyle = color;
-
-    for(var i=0; i < RUNNING_DISPLAY_WIDTH; i++){
-        var data_idx = center - RUNNING_DISPLAY_HALF_WIDTH + i;
-        if ((data_idx >=0)&&(data_idx<data.length)) {
-            if (top)
-                context.fillRect(i,0,1,data[data_idx]);
-              else
-                context.fillRect(i,RUNNING_DISPLAY_HEIGHT,1,-data[data_idx]);
-        }
-    }
+    context.drawImage( cache.canvas, RUNNING_DISPLAY_HALF_WIDTH - center, 0 );
 }
 
-function createRunningDisplayBuffer( context, buffer ) {
+function createRunningDisplayCache( buffer, isTop ) {
     var step = SECONDS_OF_RUNNING_DISPLAY * buffer.sampleRate / RUNNING_DISPLAY_WIDTH;
     var newLength = Math.floor( buffer.duration / SECONDS_OF_RUNNING_DISPLAY * RUNNING_DISPLAY_WIDTH );
     var data = buffer.getChannelData(0);
 
-    var newData = new Float32Array( newLength );
+    newLength = Math.min(newLength, 32000   );
 
+    // create canvas with width of the reduced-in-size buffer's length.
+    var canvas = document.createElement('canvas');
+    canvas.width = newLength;
+    canvas.height = RUNNING_DISPLAY_HEIGHT;  
+    var drawCTX = canvas.getContext('2d');
+
+    drawCTX.clearRect(0,0,newLength,RUNNING_DISPLAY_HEIGHT);
+
+    // set the color for the waveform display
+    drawCTX.fillStyle = isTop ? "blue" : "red";
+
+    // draw the canvas
     for (var i=0; i<newLength; i++) {
         var max = 0.0;
         var offset = Math.floor(i*step);
@@ -65,9 +61,11 @@ function createRunningDisplayBuffer( context, buffer ) {
             if (datum > max)
                 max = datum;
         }
-        newData[i] = Math.floor( max * RUNNING_DISPLAY_HEIGHT / 2 );
+        max = Math.floor( max * RUNNING_DISPLAY_HEIGHT / 2 );
+        if (isTop)
+            drawCTX.fillRect(i,0,1,max);
+          else
+            drawCTX.fillRect(i,RUNNING_DISPLAY_HEIGHT,1,-max);
     }
-    return newData;
+    return { canvas: canvas, context: drawCTX };
 }
-
-// drawBuffer( canvas.width, canvas.height, canvas.getContext('2d'), buffer ); 

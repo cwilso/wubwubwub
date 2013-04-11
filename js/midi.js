@@ -6,6 +6,7 @@ var selectMIDIIn = null;
 var selectMIDIOut = null;
 var isMixTrack = false;
 var tickCount = 0;
+var lastTickTime = 0;
 
 function turnOffLeftPlayButton() {
   if (midiOut)
@@ -44,24 +45,34 @@ function midiMessageReceived( e ) {
           if (i<0)
             i=0;
 
-          if (leftTrack.cues[i]) {
-            // jump to cuePoint
-            leftTrack.jumpToCuePoint( i );
-            // light up the play button
+          if (leftTrack.cueDeleteMode) {
+            leftTrack.cues[i] = null;
             if (midiOut)
-              midiOut.send( [(leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
-            leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
-          } else {  // cue point wasn't set - set it.
-            leftTrack.setCuePointAtCurrentTime(i);
-            // light up the appropriate cue button
-            if (midiOut)
-              midiOut.send( [0x90, noteNumber, 0x01] );
+              midiOut.send( [0x80, noteNumber, 0x01] );
+          } else {
+            if (leftTrack.cues[i]) {
+              // jump to cuePoint
+              leftTrack.jumpToCuePoint( i );
+              // light up the play button
+              if (midiOut)
+                midiOut.send( [(leftTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
+              leftTrack.onPlaybackEnd = turnOffLeftPlayButton;
+            } else {  // cue point wasn't set - set it.
+              leftTrack.setCuePointAtCurrentTime(i);
+              // light up the appropriate cue button
+              if (midiOut)
+                midiOut.send( [0x90, noteNumber, 0x01] );
+            }
           }
           break;
 
         case 0x59:   // Deck A cue delete
           leftTrack.cueDeleteMode = !leftTrack.cueDeleteMode;
           midiOut.send( [(leftTrack.cueDeleteMode) ? 0x90 : 0x80,0x59,0x01]);
+          break; 
+        case 0x5d:   // Deck B cue delete
+          rightTrack.cueDeleteMode = !rightTrack.cueDeleteMode;
+          midiOut.send( [(rightTrack.cueDeleteMode) ? 0x90 : 0x80,0x5d,0x01]);
           break; 
 
         case 0x3b:  // Deck A play/pause
@@ -74,17 +85,20 @@ function midiMessageReceived( e ) {
 //        case 0x40:  // Deck A sync
 //          break;
         case 0x65:  // Deck A PFL
+        case 0x51:  // Deck A keylock
           if (filterTrack == leftTrack) {
             filterTrack = null;
             if (midiOut)
-              midiOut.send( [0x80, 0x65, 0x01] );
+              midiOut.send( [0x80, noteNumber, 0x01] );
           } else {
             filterTrack = leftTrack;
             if (midiOut)
-              midiOut.send( [0x90, 0x65, 0x01] );
+              midiOut.send( [0x90, noteNumber, 0x01] );
           }
-          if (midiOut)
+          if (midiOut) {  // turn right deck off
             midiOut.send( [0x80, 0x66, 0x01] );
+            midiOut.send( [0x80, 0x52, 0x01] );
+          }
           break;
 //        case 0x4b:  // Deck A load
 //          break;
@@ -126,17 +140,20 @@ function midiMessageReceived( e ) {
 //        case 0x47:  // Deck B sync
 //          break;
         case 0x66:  // Deck B PFL - select deck B for filter
+        case 0x52:  // Deck B keylock
           if (filterTrack == rightTrack) {
             filterTrack = null;
             if (midiOut)
-              midiOut.send( [0x80, 0x66, 0x01] );
+              midiOut.send( [0x80, noteNumber, 0x01] );
           } else {
             filterTrack = rightTrack;
             if (midiOut)
-              midiOut.send( [0x90, 0x66, 0x01] );
+              midiOut.send( [0x90, noteNumber, 0x01] );
           }
-          if (midiOut)
+          if (midiOut) {  // turn right deck off
             midiOut.send( [0x80, 0x65, 0x01] );
+            midiOut.send( [0x80, 0x51, 0x01] );
+          }
           break;
 //        case 0x34:  // Deck B load
 //          break;
@@ -174,24 +191,58 @@ function midiMessageReceived( e ) {
           document.getElementById("xfader").value = val;
           break;
 
-        case 0x0b: // Headphone gain - filter resonance
-          if (filterTrack)
-            filterTrack.filter.Q.value = ( velocity / 127.0 ) * 20;
-          break;
-
         case 0x0d: // Deck A Pitch:  range of 0.92 - 1.08 (+/- 8%)
-          leftTrack.pbrSlider.value = 0.92 + 0.16 * velocity / 127.0;
+          leftTrack.pbrSlider.value = 0.92 + 0.16 * velocity / 128.0;
+          if (midiOut)  // light up the pitch light if centered
+            midiOut.send( [ (velocity==64)?0x90:0x80, 0x70, 0x01] );
           leftTrack.changePlaybackRate( leftTrack.pbrSlider.value );
           break;
 
         case 0x0e: // Deck B Pitch:  range of 0.92 - 1.08 (+/- 8%)
-          rightTrack.pbrSlider.value = 0.92 + 0.16 * velocity / 127.0;
+          rightTrack.pbrSlider.value = 0.92 + 0.16 * velocity / 128.0;
+          if (midiOut)  // light up the pitch light if centered
+            midiOut.send( [ (velocity==64)?0x90:0x80, 0x71, 0x01] );
           rightTrack.changePlaybackRate( rightTrack.pbrSlider.value );
           break;
 
-        case 0x17: // Master Gain - filter frequency
+        case 0x10: // Deck A treble
+          leftTrack.high.gain.value = (velocity - 64)/2;
+          break;
+        case 0x12: // Deck A mid
+          leftTrack.mid.gain.value = (velocity - 64)/2;
+          break;
+        case 0x14: // Deck A bass
+          leftTrack.low.gain.value = (velocity - 64)/2;
+          break;
+
+        case 0x11: // Deck B treble
+          rightTrack.high.gain.value = (velocity - 64)/2;
+          break;
+        case 0x13: // Deck B mid
+          rightTrack.mid.gain.value = (velocity - 64)/2;
+          break;
+        case 0x15: // Deck B bass
+          rightTrack.low.gain.value = (velocity - 64)/2;
+          break;
+
+        case 0x0c: // Mixtrack: Cue Mix - filter frequency
           if (filterTrack)
             filterTrack.filter.frequency.value = logResponse( velocity / 127.0 ) * 20000.0;
+          break;
+
+
+        case 0x17: // Master Gain - filter frequency on DJ2Go, main gain on Mixtrack
+          if (isMixTrack) {
+            masterGain.gain.value = velocity/0x66;
+          } else {
+            if (filterTrack)
+              filterTrack.filter.frequency.value = logResponse( velocity / 127.0 ) * 20000.0;
+          }
+          break;
+
+        case 0x0b: // headphone/cue mix gain - filter resonance
+          if (filterTrack)
+            filterTrack.filter.Q.value = ( velocity / 127.0 ) * 20;
           break;
 
         case 0x1a: // Browse wheel
@@ -205,22 +256,26 @@ function midiMessageReceived( e ) {
           break;
 
         case 0x19: // Deck A wheel (shuttle)
+//          var thisTickTime = window.performance.now();
+          var thisTickTime = e.receivedTime;
           if (isMixTrack) { // skips 3 of every four ticks
             if (tickCount<4)
               tickCount++;
             else
               tickCount = 0;
+            var delta = thisTickTime - lastTickTime;
+            console.log( "tick speed: " + delta );
           }
           if (!tickCount) {
-  
-          if (velocity>63) {
-            // wheel -1
-            leftTrack.skip(-1);
-          } else {
-            // wheel +1
-            leftTrack.skip(1);
+            if (velocity>63) {
+              // wheel -1
+              leftTrack.skip(-1);
+            } else {
+              // wheel +1
+              leftTrack.skip(1);
+            }
           }
-        }
+          lastTickTime = thisTickTime;
           break;
 
         case 0x18: // Deck B wheel (shuttle)
@@ -248,6 +303,13 @@ function midiMessageReceived( e ) {
       }
     }
 }
+
+/* note numbers:
+112: left pitch zero
+113: right pitch zero
+114: file light
+115: folder light
+*/
 
 function changeMIDIPort() {
   var list=midiAccess.getInputs();

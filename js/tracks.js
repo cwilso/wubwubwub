@@ -4,6 +4,8 @@ var leftTrack=null;
 var rightTrack=null;
 var FADE=0.01;
 var REVPERSEC = 33.3 / 60.0;
+var masterGain = null;
+var runningDisplayContext = null;
 
 // The Track object represents an in-memory track.  In order to be able to
 // reverse the playback, it also creates and keeps a reversed version of
@@ -62,21 +64,13 @@ function Track( url, left ) {
 	canvas.width = "370";
 	canvas.height = "50";
 	this.bufferCanvas = canvas;
-	bufferdrawer.appendChild(canvas);
+//	bufferdrawer.appendChild(canvas);
 
 	canvas = document.createElement("canvas");
 	canvas.width = "370";
 	canvas.height = "50";
 	canvas.style.zIndex = "100";
-	canvas.style.opacity = "0.33";
-	this.positionCanvas = canvas;
-	bufferdrawer.appendChild(canvas);
-
-	canvas = document.createElement("canvas");
-	canvas.width = "370";
-	canvas.height = "50";
-	canvas.style.zIndex = "101";
-	this.cueCanvas = canvas;
+	this.trackDisplayCanvas = canvas;
 	bufferdrawer.appendChild(canvas);
 
 	e.appendChild( bufferdrawer );
@@ -85,6 +79,7 @@ function Track( url, left ) {
 	deck.className = "deck";
 	var disc = document.createElement( "div" );
 	disc.className = "disc";
+
 	var platter = document.createElement( "canvas" );
 	platter.className = "platter";
 	// platter.appendChild( document.createTextNode("wubwubwub") );
@@ -191,22 +186,34 @@ function Track( url, left ) {
 	this.loadNewTrack( url );
 	this.xfadeGain = audioCtx.createGainNode();
 	this.xfadeGain.gain.value = 0.5;
-	this.xfadeGain.connect(audioCtx.destination);
+	this.xfadeGain.connect(masterGain);
+
+	this.low = audioCtx.createBiquadFilter();
+	this.low.type = "lowshelf";
+	this.low.frequency.value = 320.0;
+	this.low.gain.value = 0.0;
+	this.low.connect( this.xfadeGain );
+
+	this.mid = audioCtx.createBiquadFilter();
+	this.mid.type = "peaking";
+	this.mid.frequency.value = 1000.0;
+	this.mid.Q.value = 0.5;
+	this.mid.gain.value = 0.0;
+	this.mid.connect( this.low );
+
+	this.high = audioCtx.createBiquadFilter();
+	this.high.type = "highshelf";
+	this.high.frequency.value = 3200.0;
+	this.high.gain.value = 0.0;
+	this.high.connect( this.mid );
+
 	this.filter = audioCtx.createBiquadFilter();
 	this.filter.frequency.value = 20000.0;
 	this.filter.type = this.filter.LOWPASS;
-	this.filter.connect( this.xfadeGain );
+	this.filter.connect( this.high );
 	this.cues = [ null, null, null, null ];
 	this.cueButton = cueButton;
 	this.cueDeleteMode = false;
-
-	this.multicanvas = document.createElement("canvas");
-  	this.multicanvas.width = "860";
-  	this.multicanvas.height = "80";
-  	document.getElementById("wavedisplay").appendChild(this.multicanvas);
-  	this.runningDisplayContext = this.multicanvas.getContext("2d");
-
-//  	this.updatePlatter();
 }
 
 function reverseBuffer( buffer ) {
@@ -235,9 +242,8 @@ Track.prototype.postLoadTasks = function() {
 		this.bufferCanvas.getContext('2d'), this.buffer ); 
 	this.nameElement.innerText += " (" + this.buffer.duration.toFixed(1) + " sec)";
 
-	this.waveformDisplayData = createRunningDisplayBuffer( audioCtx, this.buffer );
-	drawRunningDisplay( this.runningDisplayContext, this.waveformDisplayData, this.lastBufferTime, 
-		this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
+	this.waveformDisplayCache = createRunningDisplayCache( this.buffer, this.isLeftTrack );
+	drawRunningDisplay( runningDisplayContext, this.waveformDisplayCache, this.lastBufferTime ); 
 
 }
 
@@ -268,19 +274,8 @@ Track.prototype.setCuePointAtCurrentTime = function(index) {
 	if (index==0)
 		this.cueButton.classList.add("active");
 	
-//	if (!this.isPlaying)
-//		this.updatePlatter( true );  // Make sure to draw the new one.
 	return this.cues[index];
 }
-
-/*
-Track.prototype.setCuePointEndAtCurrentTime = function() {
-	// save the current time
-	this.updatePlatter();
-	this.cuePointEnd = this.lastBufferTime;
-//	this.cueButton.classList.add("active");
-}
-*/
 
 Track.prototype.clearCuePoint = function( index ) {
 	this.cues[index] = null;
@@ -291,7 +286,7 @@ Track.prototype.clearCuePoint = function( index ) {
 Track.prototype.jumpToCuePoint = function( index ) {
 	if (this.isPlaying)
 		this.togglePlayback();
-//	this.cuePointIsActive = true;
+
 	this.lastBufferTime = this.cues[index].time;
 	this.togglePlayback();
 }
@@ -303,8 +298,6 @@ Track.prototype.jumpToPoint = function( time ) {
 	this.lastBufferTime = time;
 	if (wasPlaying)
 		this.togglePlayback();
-//	  else
-//  		this.updatePlatter( true );
 }
 
 // play a short snippet of sound
@@ -345,7 +338,6 @@ Track.prototype.skip = function( ticks ) {
 	if ( restart )
 		this.togglePlayback();
 	  else {
-//	  	this.updatePlatter( true );
 	  	this.playSnippet();
 	  }
 }
@@ -386,8 +378,6 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
     this.sourceNode = sourceNode;
     this.isPlaying = true;
     this.lastTimeStamp = now + 0.5;		// the 0.5 is to make up for the initial 1s "spin-up" ramp.
-//    this.lastBufferTime = 0.0;
-//    this.startTime = now;
     this.offset = this.lastBufferTime;
     this.restartTime = now;
     this.stopTime = 0.0;
@@ -442,7 +432,6 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 	if (!this.isPlaying) {
 		if (this.stopTime) {	// still in spin-down; 
 			if (now > (this.stopTime + 1) ) {	// done spinning down.
-//				console.log( "this.lastBufferTime: " + this.lastBufferTime + " this.stopTime: " + this.stopTime );
 				this.lastBufferTime = this.lastBufferTime + 0.5;
 				this.stopTime = 0;
 				return false;
@@ -489,18 +478,16 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 
 		if (this.buffer) {
 			// Now draw the position in the buffer
-			var w = this.positionCanvas.width;
-			var h = this.positionCanvas.height;
-			var ctx = this.positionCanvas.getContext('2d');
-			ctx.clearRect(0,0,w,h);
-			w = w * bufferTime / this.buffer.duration;
-			ctx.fillStyle = "white";
-			ctx.fillRect(0,0,w,h);
 
-			// TODO: move this out of the main uP call - shouldn't need to change it so often
-			w = this.cueCanvas.width;
-			ctx = this.cueCanvas.getContext('2d');
+			var w = this.trackDisplayCanvas.width;
+			var h = this.trackDisplayCanvas.height;
+			var ctx = this.trackDisplayCanvas.getContext('2d');
 			ctx.clearRect(0,0,w,h);
+		    ctx.drawImage( this.bufferCanvas, 0, 0 );
+			var boxWidth = w * bufferTime / this.buffer.duration;
+			ctx.fillStyle = "rgba(255,255,255,0.33)";
+			ctx.fillRect(0,0,boxWidth,h);
+
 			for (var i=0; i<4; i++) {
 				var cue = this.cues[i]; 
 				if (cue ) {
@@ -512,8 +499,27 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 				}
 			}
 
-			drawRunningDisplay( this.runningDisplayContext, this.waveformDisplayData, this.lastBufferTime, 
-				this.isLeftTrack ? "blue" : "red", this.isLeftTrack ); 
+			drawRunningDisplay( runningDisplayContext, this.waveformDisplayCache, bufferTime ); 
+
+		    // draw the center bar
+		    var isTop = this.isLeftTrack;
+		    runningDisplayContext.fillStyle = "gray";
+		    runningDisplayContext.fillRect(RUNNING_DISPLAY_HALF_WIDTH,isTop?0:RUNNING_DISPLAY_HALF_HEIGHT,1,RUNNING_DISPLAY_HALF_HEIGHT);
+
+			// draw cues on the running display
+			var begin = bufferTime - (SECONDS_OF_RUNNING_DISPLAY/2);
+			var end = begin + SECONDS_OF_RUNNING_DISPLAY;
+			for (var i=0; i<4; i++) {
+				var cue = this.cues[i]; 
+				if (cue && (cue.time>begin) && (cue.time<end)) {
+					var x = (cue.time-begin) * RUNNING_DISPLAY_WIDTH / SECONDS_OF_RUNNING_DISPLAY; 
+					ctx.fillStyle = cueColors[i];
+					ctx.fillRect( x, isTop ? 0 : RUNNING_DISPLAY_HALF_HEIGHT, 1, RUNNING_DISPLAY_HALF_HEIGHT );
+					ctx.font = "12px bold Skia, Arial, sans-serif";
+					ctx.fillText( cueText[i], x+2, isTop ? RUNNING_DISPLAY_HALF_HEIGHT/2 : RUNNING_DISPLAY_HALF_HEIGHT*1.5 );
+				}
+			}
+
 		}
 	}
 
@@ -589,18 +595,14 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    var sourceNode = audioCtx.createBufferSource();
 	    sourceNode.loop = false;
 		this.gainNode = audioCtx.createGainNode();
+		this.gainNode.gain.value = this.gain;
 		this.gainNode.connect( this.filter );
 	    sourceNode.connect( this.gainNode );
 	    sourceNode.buffer = (rate>0) ? this.buffer : this.revBuffer;
 	    var startTime = (rate>0) ? this.lastBufferTime : sourceNode.buffer.duration-this.lastBufferTime;
 	    
     	sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );
-//    	this.gainNode.gain.setValueAtTime( 0, now );
-//   		this.gainNode.gain.setTargetValueAtTime( this.gain, now+0.01, 0.01 );
-    	var duration = 
-//	    	( this.cuePointIsActive && this.cuePointEnd ) ? 
-//    		(this.cuePointEnd - startTime) : 
-    		(sourceNode.buffer.duration - startTime);
+    	var duration = (sourceNode.buffer.duration - startTime);
         this.gainNode.gain.value = 0.0;
         this.gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
     	sourceNode.noteGrainOn( now, startTime, duration );
@@ -613,7 +615,9 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 Track.prototype.changeGain = function( gain ) {
 	gain = parseFloat(gain).toFixed(2);
 	this.gain = gain;
-	if (this.gainNode)
+	if (this.gainNode) {
+		this.gainNode.gain.cancelScheduledValues( 0 );
 		this.gainNode.gain.value = gain;
+	}
 	this.gainText.innerText = gain;
 }

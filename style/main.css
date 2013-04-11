@@ -11,7 +11,6 @@ body { background: #222; }
 .name { color: #ddd; font: 18px Arial, sans-serif; margin: 10px 0px 5px;}
 #wavedisplay, .aligner { width: 860px; margin: 0px auto;}
 #wavedisplay { height: 80px; background: black; position:relative;}
-#wavedisplay canvas { position:absolute; }
 .loading { border-color: red;}
 .slider { height: 20px; width: 300px;}
 .xfade { display:block; margin: 10px auto; height:20px; width: 600px;}

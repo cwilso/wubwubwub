@@ -261,7 +261,7 @@
 
   function _midiProc( timestamp, data ) {
     var evt = new CustomEvent( "message" );
-    evt.timestamp = parseFloat( timestamp.toString()) + this._jazzInstance._perfTimeZero;
+    evt.receivedTime = parseFloat( timestamp.toString()) + this._jazzInstance._perfTimeZero;
     var length = 0;
     var i,j;
 

@@ -4,7 +4,7 @@ var revdingbuffer = null;
 function playSound(buffer) {
   var source = audioCtx.createBufferSource(); // creates a sound source
   source.buffer = buffer;                    // tell the source which sound to play
-  source.connect(audioCtx.destination);       // connect the source to the context's destination (the speakers)
+  source.connect(masterGain);       // connect the source to the context's destination (the speakers)
   source.noteOn(0);                          // play the source now
 }
 
@@ -48,8 +48,9 @@ function handleFileDrop(evt) {
 //init: create plugin
 window.addEventListener('load', function() {
   audioCtx = new webkitAudioContext();
-
-
+  masterGain = audioCtx.createGain();
+  masterGain.connect( audioCtx.destination );
+  runningDisplayContext = document.getElementById("wavedisplay").getContext("2d");
 
   leftTrack = new Track( "sounds/TheUnderworld.ogg", true );
   rightTrack = new Track( "sounds/RapidArc.ogg", false );
@@ -76,6 +77,7 @@ var rafID = null;
 var tracks = null;
 
 function updatePlatters( time ) {
+  runningDisplayContext.clearRect(0,0,RUNNING_DISPLAY_WIDTH,RUNNING_DISPLAY_HEIGHT);
   for (var i=0; i<tracks.children.length; i++)
     tracks.children[i].track.updatePlatter( true );
 

@@ -116,18 +116,24 @@ function midiMessageReceived( e ) {
           if (i<0)
             i=0;
 
-          if (rightTrack.cues[i]) {
-            // jump to cuePoint
-            rightTrack.jumpToCuePoint( i );
-            // light up the play button
+          if (rightTrack.cueDeleteMode) {
+            rightTrack.cues[i] = null;
             if (midiOut)
-              midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
-            rightTrack.onPlaybackEnd = turnOffRightPlayButton;
-          } else {  // cue point wasn't set - set it.
-            rightTrack.setCuePointAtCurrentTime(i);
-            // light up the appropriate cue button
-            if (midiOut)
-              midiOut.send( [0x90, noteNumber, 0x01] );
+              midiOut.send( [0x80, noteNumber, 0x01] );
+          } else {
+            if (rightTrack.cues[i]) {
+              // jump to cuePoint
+              rightTrack.jumpToCuePoint( i );
+              // light up the play button
+              if (midiOut)
+                midiOut.send( [(rightTrack.isPlaying) ? 0x90 : 0x80,0x3b,0x01]);
+              rightTrack.onPlaybackEnd = turnOffRightPlayButton;
+            } else {  // cue point wasn't set - set it.
+              rightTrack.setCuePointAtCurrentTime(i);
+              // light up the appropriate cue button
+              if (midiOut)
+                midiOut.send( [0x90, noteNumber, 0x01] );
+            }
           }
           break;
         case 0x42:  // Deck B play/pause
@@ -227,7 +233,7 @@ function midiMessageReceived( e ) {
 
         case 0x0c: // Mixtrack: Cue Mix - filter frequency
           if (filterTrack)
-            filterTrack.filter.frequency.value = logResponse( velocity / 127.0 ) * 20000.0;
+            filterTrack.filter.frequency.value = logResponse( velocity / 127.0 ) * 10000.0;
           break;
 
 
@@ -236,7 +242,7 @@ function midiMessageReceived( e ) {
             masterGain.gain.value = velocity/0x66;
           } else {
             if (filterTrack)
-              filterTrack.filter.frequency.value = logResponse( velocity / 127.0 ) * 20000.0;
+              filterTrack.filter.frequency.value = logResponse( velocity / 127.0 ) * 10000.0;
           }
           break;
 

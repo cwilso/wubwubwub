@@ -503,6 +503,7 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 
 		    // draw the center bar
 		    var isTop = this.isLeftTrack;
+		    ctx = runningDisplayContext;
 		    runningDisplayContext.fillStyle = "gray";
 		    runningDisplayContext.fillRect(RUNNING_DISPLAY_HALF_WIDTH,isTop?0:RUNNING_DISPLAY_HALF_HEIGHT,1,RUNNING_DISPLAY_HALF_HEIGHT);
 

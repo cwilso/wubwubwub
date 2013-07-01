@@ -47,7 +47,7 @@ function handleFileDrop(evt) {
 
 //init: create plugin
 window.addEventListener('load', function() {
-  audioContext = new webkitAudioContext();
+  audioContext = new AudioContext();
 
   leftTrack = new Track( "sounds/TheUnderworld.ogg" );
   rightTrack = new Track( "sounds/RapidArc.ogg" );
@@ -65,5 +65,5 @@ window.addEventListener('load', function() {
 
   // Start initializing MIDI
   if (navigator.requestMIDIAccess)
-    navigator.requestMIDIAccess( onMIDIInit, onMIDIFail );
+    navigator.requestMIDIAccess().then( onMIDIInit, onMIDIFail );
 });

@@ -206,28 +206,22 @@ function midiMessageReceived( e ) {
     }
 }
 
-function changeMIDIPort() {
-  var list=midiAccess.getInputs();
-  midiIn = midi.getInput( list[ selectMIDI.selectedIndex ] );
-  midiIn.onmessage = midiMessageReceived;
-}
-
 function changeMIDIIn( ev ) {
-  var list=midiAccess.getInputs();
+  var list=midiAccess.inputs();
   var selectedIndex = ev.target.selectedIndex;
 
   if (list.length >= selectedIndex) {
-    midiIn = midiAccess.getInput( list[selectedIndex] );
-    midiIn.onmessage = midiMessageReceived;
+    midiIn = list[selectedIndex];
+    midiIn.onmidimessage = midiMessageReceived;
   }
 }
 
 function changeMIDIOut( ev ) {
-  var list=midiAccess.getOutputs();
+  var list=midiAccess.outputs();
   var selectedIndex = ev.target.selectedIndex;
 
   if (list.length >= selectedIndex)
-    midiOut = midiAccess.getOutput( list[selectedIndex] );
+    midiOut = list[selectedIndex];
 }
 
 function onMIDIInit( midi ) {
@@ -236,21 +230,21 @@ function onMIDIInit( midi ) {
   selectMIDIIn=document.getElementById("midiIn");
   selectMIDIOut=document.getElementById("midiOut");
 
-  var list=midiAccess.getInputs();
+  var list=midiAccess.inputs();
 
   // clear the MIDI input select
   selectMIDIIn.options.length = 0;
 
   for (var i=0; i<list.length; i++)
-    if (list[i].name.toString().indexOf("DJ") != -1)
+    if ((list[i].name.toString().indexOf("DJ") != -1) || (list[i].name.toString().indexOf("Track") != -1))
       preferredIndex = i;
 
   if (list.length) {
     for (var i=0; i<list.length; i++)
       selectMIDIIn.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
 
-    midiIn = midiAccess.getInput( list[preferredIndex] );
-    midiIn.onmessage = midiMessageReceived;
+    midiIn = list[preferredIndex];
+    midiIn.onmidimessage = midiMessageReceived;
 
     selectMIDIIn.onchange = changeMIDIIn;
   }
@@ -258,17 +252,17 @@ function onMIDIInit( midi ) {
   // clear the MIDI output select
   selectMIDIOut.options.length = 0;
   preferredIndex = 0;
-  list=midiAccess.getOutputs();
+  list=midiAccess.outputs();
 
   for (var i=0; i<list.length; i++)
-    if (list[i].name.toString().indexOf("DJ") != -1)
+    if ((list[i].name.toString().indexOf("DJ") != -1) || (list[i].name.toString().indexOf("Track") != -1))
       preferredIndex = i;
 
   if (list.length) {
     for (var i=0; i<list.length; i++)
       selectMIDIOut.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
 
-    midiOut = midiAccess.getOutput( list[preferredIndex] );
+    midiOut = list[preferredIndex];
     selectMIDIOut.onchange = changeMIDIOut;
   }
 
@@ -287,5 +281,5 @@ function onMIDIInit( midi ) {
 }
 
 function onMIDIFail( err ) {
-
+  console.log("Failed to initialize MIDI: " + error.code);
 }

@@ -1,4 +1,4 @@
-var audioContext = new webkitAudioContext();
+var audioContext = new AudioContext();
 
 var leftTrack=null;
 var rightTrack=null;
@@ -149,7 +149,7 @@ function Track( url ) {
     this.lastBufferTime = 0.0;
 	this.isPlaying = false;
 	this.loadNewTrack( url );
-	this.xfadeGain = audioContext.createGainNode();
+	this.xfadeGain = audioContext.createGain();
 	this.xfadeGain.gain.value = 0.5;
 	this.xfadeGain.connect(audioContext.destination);
 	this.filter = audioContext.createBiquadFilter();
@@ -228,7 +228,7 @@ Track.prototype.playSnippet = function() {
 	var snippetLength = 11.0/360.0;
 	var then = now + snippetLength;	// one tick
     var sourceNode = audioContext.createBufferSource();
-	var gainNode = audioContext.createGainNode();
+	var gainNode = audioContext.createGain();
 
     sourceNode.loop = false;
 	gainNode.connect( this.filter );
@@ -244,8 +244,8 @@ Track.prototype.playSnippet = function() {
     gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
     gainNode.gain.setTargetValueAtTime( 0.0, then, FADE );
 
-	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
-	sourceNode.noteOff( then+snippetLength );
+	sourceNode.start( now, startTime, sourceNode.buffer.duration - startTime );
+	sourceNode.stop( then+snippetLength );
 }
 
 Track.prototype.skip = function( ticks ) {
@@ -279,7 +279,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
 	        playback.linearRampToValueAtTime( 0.001, now+1 );
 	        this.gainNode.gain.setTargetValueAtTime( 0, now+1, 0.01 );
 	        this.stopTime = now;
- 		   	this.sourceNode.noteOff( now + 2 );
+ 		   	this.sourceNode.stop( now + 2 );
 	        this.sourceNode = null;
 	        this.gainNode = null;
         }
@@ -293,7 +293,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
     sourceNode.playbackRate.setValueAtTime( 0.001, now );
     sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 
-	this.gainNode = audioContext.createGainNode();
+	this.gainNode = audioContext.createGain();
 	this.gainNode.connect( this.filter );
 	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
@@ -322,7 +322,7 @@ Track.prototype.togglePlayback = function() {
         if (this.sourceNode) {  // we may not have a sourceNode, if our PBR is zero.
 	        this.stopTime = 0;
 		    this.gainNode.gain.setTargetValueAtTime( 0.0, now, FADE );
- 		   	this.sourceNode.noteOff( now + FADE*4 );
+ 		   	this.sourceNode.stop( now + FADE*4 );
  	        this.sourceNode = null;
 	        this.gainNode = null;
         }
@@ -434,7 +434,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	// stop playing and null the sourceNode
     	if (this.sourceNode) {
     		this.gainNode.gain.setTargetValueAtTime( 0, now, 0.01 );
-    		this.sourceNode.noteOff(now + 0.1);
+    		this.sourceNode.stop(now + 0.1);
     		this.sourceNode = null;
     		this.gainNode = null;
     	}
@@ -450,7 +450,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    	((this.currentPlaybackRate < 0) && (rate > 0))	) {
 	    	if (this.sourceNode) {
 				this.gainNode.gain.setTargetValueAtTime( 0, now, FADE );
-				this.sourceNode.noteOff(now + FADE*4);
+				this.sourceNode.stop(now + FADE*4);
 				this.sourceNode = null;
 				this.gainNode = null;
 	    	}
@@ -463,7 +463,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	if (!this.sourceNode) {
 	    var sourceNode = audioContext.createBufferSource();
 	    sourceNode.loop = false;
-		this.gainNode = audioContext.createGainNode();
+		this.gainNode = audioContext.createGain();
 		this.gainNode.connect( this.filter );
 	    sourceNode.connect( this.gainNode );
 	    sourceNode.buffer = (rate>0) ? this.buffer : this.revBuffer;
@@ -476,7 +476,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     		(this.cuePointEnd - startTime) : (sourceNode.buffer.duration - startTime);
         this.gainNode.gain.value = 0.0;
         this.gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
-    	sourceNode.noteGrainOn( now, startTime, duration );
+    	sourceNode.start( now, startTime, duration );
 	    this.sourceNode = sourceNode;
 	} else
 	    this.sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );

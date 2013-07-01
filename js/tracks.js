@@ -82,13 +82,11 @@ function Track( url, left ) {
 
 	var platter = document.createElement( "canvas" );
 	platter.className = "platter";
-	// platter.appendChild( document.createTextNode("wubwubwub") );
 	this.platter = platter;
 	this.platterContext = platter.getContext("2d");
 	this.platterContext.fillStyle = "white";
 	platter.width = 300;
 	platter.height = 300;
-	//this.platter.style.webkitTransform = "rotate(0deg)";
 	this.platterContext.translate(150,150);
 	this.platterContext.font = "22px 'Chango', sans-serif";
 
@@ -184,7 +182,7 @@ function Track( url, left ) {
     this.lastBufferTime = 0.0;
 	this.isPlaying = false;
 	this.loadNewTrack( url );
-	this.xfadeGain = audioCtx.createGainNode();
+	this.xfadeGain = audioCtx.createGain();
 	this.xfadeGain.gain.value = 0.5;
 	this.xfadeGain.connect(masterGain);
 
@@ -306,7 +304,7 @@ Track.prototype.playSnippet = function() {
 	var snippetLength = 11.0/360.0;
 	var then = now + snippetLength;	// one tick
     var sourceNode = audioCtx.createBufferSource();
-	var gainNode = audioCtx.createGainNode();
+	var gainNode = audioCtx.createGain();
 
     sourceNode.loop = false;
 	gainNode.connect( this.filter );
@@ -322,8 +320,8 @@ Track.prototype.playSnippet = function() {
     gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
     gainNode.gain.setTargetValueAtTime( 0.0, then, FADE );
 
-	sourceNode.noteGrainOn( now, startTime, sourceNode.buffer.duration - startTime );
-	sourceNode.noteOff( then+snippetLength );
+	sourceNode.start( now, startTime, sourceNode.buffer.duration - startTime );
+	sourceNode.stop( then+snippetLength );
 }
 
 Track.prototype.skip = function( ticks ) {
@@ -356,7 +354,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
 	        playback.linearRampToValueAtTime( 0.001, now+1 );
 	        this.gainNode.gain.setTargetValueAtTime( 0, now+1, 0.01 );
 	        this.stopTime = now;
- 		   	this.sourceNode.noteOff( now + 2 );
+ 		   	this.sourceNode.stop( now + 2 );
 	        this.sourceNode = null;
 	        this.gainNode = null;
         }
@@ -370,7 +368,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
     sourceNode.playbackRate.setValueAtTime( 0.001, now );
     sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 
-	this.gainNode = audioCtx.createGainNode();
+	this.gainNode = audioCtx.createGain();
 	this.gainNode.connect( this.filter );
 	this.gainNode.gain.value = this.gain;
     sourceNode.connect( this.gainNode );
@@ -396,7 +394,7 @@ Track.prototype.togglePlayback = function() {
         if (this.sourceNode) {  // we may not have a sourceNode, if our PBR is zero.
 	        this.stopTime = 0;
 		    this.gainNode.gain.setTargetValueAtTime( 0.0, now, FADE );
- 		   	this.sourceNode.noteOff( now + FADE*4 );
+ 		   	this.sourceNode.stop( now + FADE*4 );
  	        this.sourceNode = null;
 	        this.gainNode = null;
         }
@@ -566,7 +564,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	// stop playing and null the sourceNode
     	if (this.sourceNode) {
     		this.gainNode.gain.setTargetValueAtTime( 0, now, 0.01 );
-    		this.sourceNode.noteOff(now + 0.1);
+    		this.sourceNode.stop(now + 0.1);
     		this.sourceNode = null;
     		this.gainNode = null;
     	}
@@ -582,7 +580,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	    	((this.currentPlaybackRate < 0) && (rate > 0))	) {
 	    	if (this.sourceNode) {
 				this.gainNode.gain.setTargetValueAtTime( 0, now, FADE );
-				this.sourceNode.noteOff(now + FADE*4);
+				this.sourceNode.stop(now + FADE*4);
 				this.sourceNode = null;
 				this.gainNode = null;
 	    	}
@@ -595,7 +593,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
 	if (!this.sourceNode) {
 	    var sourceNode = audioCtx.createBufferSource();
 	    sourceNode.loop = false;
-		this.gainNode = audioCtx.createGainNode();
+		this.gainNode = audioCtx.createGain();
 		this.gainNode.gain.value = this.gain;
 		this.gainNode.connect( this.filter );
 	    sourceNode.connect( this.gainNode );
@@ -606,7 +604,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	var duration = (sourceNode.buffer.duration - startTime);
         this.gainNode.gain.value = 0.0;
         this.gainNode.gain.setTargetValueAtTime( this.gain, now, FADE );
-    	sourceNode.noteGrainOn( now, startTime, duration );
+    	sourceNode.start( now, startTime, duration );
 	    this.sourceNode = sourceNode;
 	} else
 	    this.sourceNode.playbackRate.setValueAtTime( Math.abs(rate), now );

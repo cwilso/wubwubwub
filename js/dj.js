@@ -47,7 +47,7 @@ function handleFileDrop(evt) {
 
 //init: create plugin
 window.addEventListener('load', function() {
-  audioCtx = new webkitAudioContext();
+  audioCtx = new AudioContext();
   masterGain = audioCtx.createGain();
   masterGain.connect( audioCtx.destination );
   runningDisplayContext = document.getElementById("wavedisplay").getContext("2d");
@@ -68,9 +68,11 @@ window.addEventListener('load', function() {
   tracks = document.getElementById( "trackContainer" );
   updatePlatters( 0 );
 
+  window.requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame;
+
   // Start initializing MIDI
   if (navigator.requestMIDIAccess)
-    navigator.requestMIDIAccess( onMIDIInit, onMIDIFail );
+    navigator.requestMIDIAccess().then( onMIDIInit, onMIDIFail );
 });
 
 var rafID = null;
@@ -81,5 +83,5 @@ function updatePlatters( time ) {
   for (var i=0; i<tracks.children.length; i++)
     tracks.children[i].track.updatePlatter( true );
 
-  rafID = window.webkitRequestAnimationFrame( updatePlatters );
+  rafID = window.requestAnimationFrame( updatePlatters );
 }

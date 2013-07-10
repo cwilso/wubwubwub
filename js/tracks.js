@@ -374,6 +374,7 @@ Track.prototype.togglePlaybackSpinUpDown = function() {
     sourceNode = audioCtx.createBufferSource();
     sourceNode.buffer = this.buffer;
     sourceNode.loop = false;
+    // The "now" below causes issues in FFnightly
     sourceNode.playbackRate.setValueAtTime( 0.001, now );
     sourceNode.playbackRate.linearRampToValueAtTime( this.currentPlaybackRate, now+1 );
 

@@ -154,7 +154,7 @@ function Track( url, left ) {
   	e.addEventListener('drop', function (ev) {
   		ev.preventDefault();
 		e.classList.remove("droptarget");
-  		e.firstChild.innerText = ev.dataTransfer.files[0].name;
+  		e.firstChild.innerHTML = ev.dataTransfer.files[0].name;
   		e.classList.add("loading");
 
 	  	var reader = new FileReader();
@@ -238,7 +238,7 @@ Track.prototype.postLoadTasks = function() {
 
 	drawBuffer( this.bufferCanvas.width, this.bufferCanvas.height, 
 		this.bufferCanvas.getContext('2d'), this.buffer ); 
-	this.nameElement.innerText += " (" + this.buffer.duration.toFixed(1) + " sec)";
+	this.nameElement.innerHTML += " (" + this.buffer.duration.toFixed(1) + " sec)";
 
 	this.waveformDisplayCache = createRunningDisplayCache( this.buffer, this.isLeftTrack );
 	drawRunningDisplay( runningDisplayContext, this.waveformDisplayCache, this.lastBufferTime ); 
@@ -320,8 +320,9 @@ Track.prototype.playSnippet = function() {
     gainNode.gain.setTargetAtTime( this.gain, now, FADE );
     gainNode.gain.setTargetAtTime( 0.0, then, FADE );
 
-	sourceNode.onended = shutDownNodeWhenDonePlaying.bind(this);
-    sourceNode.start( now, startTime, sourceNode.buffer.duration - startTime );
+	sourceNode.track = this;
+	sourceNode.onended = shutDownNodeWhenDonePlaying.bind(sourceNode);
+	sourceNode.start( now, startTime, sourceNode.buffer.duration - startTime );
 	sourceNode.stop( then+snippetLength );
 }
 
@@ -342,9 +343,11 @@ Track.prototype.skip = function( ticks ) {
 }
 
 function shutDownNodeWhenDonePlaying() {
-	this.sourceNode = null;
-    this.gainNode = null;
-	this.isPlaying = false;
+	if (this.track) {
+		this.track.sourceNode = null;
+	    this.track.gainNode = null;
+		this.track.isPlaying = false;
+	}
 	if (this.onPlaybackEnd)
 		this.onPlaybackEnd();
 }
@@ -403,6 +406,7 @@ Track.prototype.togglePlayback = function() {
     if (this.isPlaying) {
         //stop playing and return
         if (this.sourceNode) {  // we may not have a sourceNode, if our PBR is zero.
+        	this.sourceNode.track = null;
 	        this.stopTime = 0;
 		    this.gainNode.gain.setTargetAtTime( 0.0, now, FADE );
  		   	this.sourceNode.stop( now + FADE*4 );
@@ -530,7 +534,7 @@ Track.prototype.updatePlatter = function( drawOnScreen ) {
 }
 
 Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
-	this.pbrText.innerText = parseFloat(rate).toFixed(2);
+	this.pbrText.innerHTML = parseFloat(rate).toFixed(2);
     if (!this.isPlaying) {
     	this.currentPlaybackRate = rate;
     	return;
@@ -608,7 +612,7 @@ Track.prototype.changePlaybackRate = function( rate ) {	// rate may be negative
     	var duration = (sourceNode.buffer.duration - startTime);
         this.gainNode.gain.value = 0.0;
         this.gainNode.gain.setTargetAtTime( this.gain, now, FADE );
-		sourceNode.onended = shutDownNodeWhenDonePlaying.bind(this);
+		sourceNode.onended = shutDownNodeWhenDonePlaying.bind(sourceNode);
         sourceNode.start( now, startTime, duration );
 	    this.sourceNode = sourceNode;
 	} else  // if I replace "now" with "0" below, Firefox works.

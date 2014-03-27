@@ -4,4 +4,5 @@ This app is the beginnings of a DJ deck built in Web Audio.  It started from a d
 
 Check it out, feel free to fork, submit pull requests, etc.
 
+Live demo hosted on [WebAudioDemos.appspot.com](https://webaudiodemos.appspot.com/wubwubwub/).
 -Chris

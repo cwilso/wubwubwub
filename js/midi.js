@@ -341,41 +341,71 @@ function onMIDIInit( midi ) {
   selectMIDIIn=document.getElementById("midiIn");
   selectMIDIOut=document.getElementById("midiOut");
 
-  var list=midiAccess.inputs();
+  if ((typeof(midiAccess.inputs) == "function")) {  //Old Skool MIDI inputs() code
+    var list=midiAccess.inputs();
 
-  // clear the MIDI input select
-  selectMIDIIn.options.length = 0;
+    // clear the MIDI input select
+    selectMIDIIn.options.length = 0;
 
-  for (var i=0; i<list.length; i++)
-    if (list[i].name.toString().indexOf("Numark") != -1)
-      preferredIndex = i;
-
-  if (list.length) {
     for (var i=0; i<list.length; i++)
-      selectMIDIIn.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
+      if (list[i].name.toString().indexOf("Numark") != -1)
+        preferredIndex = i;
 
-    midiIn = list[preferredIndex];
-    midiIn.onmidimessage = midiMessageReceived;
+    if (list.length) {
+      for (var i=0; i<list.length; i++)
+        selectMIDIIn.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
 
+      midiIn = list[preferredIndex];
+      midiIn.onmidimessage = midiMessageReceived;
+
+      selectMIDIIn.onchange = changeMIDIIn;
+    }
+
+    // clear the MIDI output select
+    selectMIDIOut.options.length = 0;
+    preferredIndex = 0;
+    list=midiAccess.outputs();
+
+    for (var i=0; i<list.length; i++)
+      if (list[i].name.toString().indexOf("Numark") != -1)
+        preferredIndex = i;
+
+    if (list.length) {
+      for (var i=0; i<list.length; i++)
+        selectMIDIOut.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
+
+      midiOut = list[preferredIndex];
+      selectMIDIOut.onchange = changeMIDIOut;
+      isMixTrack = (list[preferredIndex].name.indexOf("Mix Track") !=-1);
+    }
+  } else { // New MIDIMap implementation
+    // clear the MIDI input select
+    selectMIDIIn.options.length = 0;
+
+    for (var input of midiAccess.inputs.values()) {
+      if (input.name.toString().indexOf("Numark") != -1) {
+        midiIn = input;
+        midiIn.onmidimessage = midiMessageReceived;
+        selectMIDIIn.add(new Option(input.name,input.fingerprint,true,true));
+      }
+      else
+        selectMIDIIn.add(new Option(input.name,input.fingerprint,false,false));
+    }
     selectMIDIIn.onchange = changeMIDIIn;
-  }
 
-  // clear the MIDI output select
-  selectMIDIOut.options.length = 0;
-  preferredIndex = 0;
-  list=midiAccess.outputs();
-
-  for (var i=0; i<list.length; i++)
-    if (list[i].name.toString().indexOf("Numark") != -1)
-      preferredIndex = i;
-
-  if (list.length) {
-    for (var i=0; i<list.length; i++)
-      selectMIDIOut.options[i]=new Option(list[i].name,list[i].fingerprint,i==preferredIndex,i==preferredIndex);
-
-    midiOut = list[preferredIndex];
+    // clear the MIDI output select
+    selectMIDIOut.options.length = 0;
+    for (var output of midiAccess.outputs.values()) {
+      if (output.name.toString().indexOf("Numark") != -1) {
+        midiOut = output;
+        isMixTrack = (output.name.indexOf("Mix Track") !=-1);
+        midiIn.onmidimessage = midiMessageReceived;
+        selectMIDIOut.add(new Option(output.name,output.fingerprint,true,true));
+      }
+      else
+        selectMIDIOut.add(new Option(output.name,output.fingerprint,false,false));
+    }
     selectMIDIOut.onchange = changeMIDIOut;
-    isMixTrack = (list[preferredIndex].name.indexOf("Mix Track") !=-1);
   }
 
   // clear all the LEDs

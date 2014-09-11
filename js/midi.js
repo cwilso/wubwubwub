@@ -318,21 +318,28 @@ function midiMessageReceived( e ) {
 */
 
 function changeMIDIIn( ev ) {
-  var list=midiAccess.inputs();
-  var selectedIndex = ev.target.selectedIndex;
+  if (midiIn)
+    midiIn.onmidimessage = null;
+  var selectedID = ev.target[ev.target.selectedIndex].value;
 
-  if (list.length >= selectedIndex) {
-    midiIn = list[selectedIndex];
-    midiIn.onmidimessage = midiMessageReceived;
+  for (var input of midiAccess.inputs.values()) {
+    if (selectedID == input.id) {
+      midiIn = input;
+      midiIn.onmidimessage = midiMessageReceived;
+      return;
+    }
   }
 }
 
 function changeMIDIOut( ev ) {
-  var list=midiAccess.outputs();
-  var selectedIndex = ev.target.selectedIndex;
+  var selectedID = ev.target[ev.target.selectedIndex].value;
 
-  if (list.length >= selectedIndex)
-    midiOut = list[selectedIndex];
+  for (var output of midiAccess.inputs.values()) {
+    if (selectedID == output.id) {
+      midiOut = output;
+      return;
+    }
+  }
 }
 
 function onMIDIInit( midi ) {
